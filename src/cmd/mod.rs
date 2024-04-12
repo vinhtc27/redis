@@ -1,17 +1,20 @@
+mod ping;
+pub use ping::Ping;
+
+mod echo;
+pub use echo::Echo;
+
 mod get;
 pub use get::Get;
-
-mod publish;
-pub use publish::Publish;
 
 mod set;
 pub use set::Set;
 
+mod publish;
+pub use publish::Publish;
+
 mod subscribe;
 pub use subscribe::{Subscribe, Unsubscribe};
-
-mod ping;
-pub use ping::Ping;
 
 mod unknown;
 pub use unknown::Unknown;
@@ -23,12 +26,13 @@ use crate::{Connection, Db, Frame, Parse, ParseError, Shutdown};
 /// Methods called on `Command` are delegated to the command implementation.
 #[derive(Debug)]
 pub enum Command {
+    Ping(Ping),
+    Echo(Echo),
     Get(Get),
-    Publish(Publish),
     Set(Set),
+    Publish(Publish),
     Subscribe(Subscribe),
     Unsubscribe(Unsubscribe),
-    Ping(Ping),
     Unknown(Unknown),
 }
 
@@ -57,12 +61,13 @@ impl Command {
         // Match the command name, delegating the rest of the parsing to the
         // specific command.
         let command = match &command_name[..] {
+            "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
+            "echo" => Command::Echo(Echo::parse_frames(&mut parse)?),
             "get" => Command::Get(Get::parse_frames(&mut parse)?),
-            "publish" => Command::Publish(Publish::parse_frames(&mut parse)?),
             "set" => Command::Set(Set::parse_frames(&mut parse)?),
+            "publish" => Command::Publish(Publish::parse_frames(&mut parse)?),
             "subscribe" => Command::Subscribe(Subscribe::parse_frames(&mut parse)?),
             "unsubscribe" => Command::Unsubscribe(Unsubscribe::parse_frames(&mut parse)?),
-            "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
             _ => {
                 // The command is not recognized and an Unknown command is
                 // returned.
@@ -96,27 +101,29 @@ impl Command {
         use Command::*;
 
         match self {
-            Get(cmd) => cmd.apply(db, dst).await,
-            Publish(cmd) => cmd.apply(db, dst).await,
-            Set(cmd) => cmd.apply(db, dst).await,
-            Subscribe(cmd) => cmd.apply(db, dst, shutdown).await,
             Ping(cmd) => cmd.apply(dst).await,
-            Unknown(cmd) => cmd.apply(dst).await,
+            Echo(cmd) => cmd.apply(dst).await,
+            Get(cmd) => cmd.apply(db, dst).await,
+            Set(cmd) => cmd.apply(db, dst).await,
+            Publish(cmd) => cmd.apply(db, dst).await,
+            Subscribe(cmd) => cmd.apply(db, dst, shutdown).await,
             // `Unsubscribe` cannot be applied. It may only be received from the
             // context of a `Subscribe` command.
             Unsubscribe(_) => Err("`Unsubscribe` is unsupported in this context".into()),
+            Unknown(cmd) => cmd.apply(dst).await,
         }
     }
 
     /// Returns the command name
     pub(crate) fn get_name(&self) -> &str {
         match self {
+            Command::Ping(_) => "ping",
+            Command::Echo(_) => "echo",
             Command::Get(_) => "get",
-            Command::Publish(_) => "pub",
             Command::Set(_) => "set",
+            Command::Publish(_) => "pub",
             Command::Subscribe(_) => "subscribe",
             Command::Unsubscribe(_) => "unsubscribe",
-            Command::Ping(_) => "ping",
             Command::Unknown(cmd) => cmd.get_name(),
         }
     }

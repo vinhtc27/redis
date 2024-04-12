@@ -2,7 +2,7 @@
 //!
 //! Provides an async connect and methods for issuing the supported commands.
 
-use crate::cmd::{Get, Ping, Publish, Set, Subscribe, Unsubscribe};
+use crate::cmd::{Echo, Get, Ping, Publish, Set, Subscribe, Unsubscribe};
 use crate::{Connection, Frame};
 
 use async_stream::try_stream;
@@ -112,6 +112,40 @@ impl Client {
     #[instrument(skip(self))]
     pub async fn ping(&mut self, msg: Option<Bytes>) -> crate::Result<Bytes> {
         let frame = Ping::new(msg).into_frame();
+        debug!(request = ?frame);
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(value) => Ok(value.into()),
+            Frame::Bulk(value) => Ok(value),
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    /// Echo to the server.
+    ///
+    /// Returns message sended by client
+    ///
+    /// ECHO is a command like PING
+    /// that's used for testing and debugging.
+    ///
+    /// # Examples
+    ///
+    /// Demonstrates basic usage.
+    /// ```no_run
+    /// use redis::clients::Client;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///
+    ///     let pong = client.echo(None).await.unwrap();
+    ///     assert_eq!(b"PONG", &pong[..]);
+    /// }
+    /// ```
+    #[instrument(skip(self))]
+    pub async fn echo(&mut self, msg: Bytes) -> crate::Result<Bytes> {
+        let frame = Echo::new(msg).into_frame();
         debug!(request = ?frame);
         self.connection.write_frame(&frame).await?;
 

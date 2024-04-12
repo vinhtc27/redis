@@ -25,6 +25,17 @@ async fn ping_pong_with_message() {
     assert_eq!("你好世界".as_bytes(), &pong[..]);
 }
 
+/// A ECHO test with message provided.
+/// It should return the message.
+#[tokio::test]
+async fn echo_with_message() {
+    let (addr, _) = start_server().await;
+    let mut client = Client::connect(addr).await.unwrap();
+
+    let pong = client.echo("hey".into()).await.unwrap();
+    assert_eq!("hey".as_bytes(), &pong[..]);
+}
+
 /// A basic "hello world" style test. A server instance is started in a
 /// background task. A client instance is then established and set and get
 /// commands are sent to the server. The response is then evaluated
