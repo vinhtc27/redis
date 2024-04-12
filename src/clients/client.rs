@@ -61,16 +61,10 @@ impl Client {
     /// # Examples
     ///
     /// ```no_run
-    /// use redis::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let client = match Client::connect("localhost:6379").await {
-    ///         Ok(client) => client,
-    ///         Err(_) => panic!("failed to establish connection"),
-    ///     };
-    /// # drop(client);
-    /// }
+    /// let client = match Client::connect("localhost:6379").await {
+    ///     Ok(client) => client,
+    ///     Err(_) => panic!("failed to establish connection"),
+    /// };
     /// ```
     ///
     pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {

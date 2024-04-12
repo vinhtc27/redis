@@ -1,4 +1,4 @@
-# redis
+# Combine codecrafter redis challenges with mini-redis repo of tokio
 
 `redis` is an incomplete, idiomatic implementation of a
 [Redis](https://redis.io) client and server built with
@@ -35,7 +35,7 @@ for interacting with the server.
 Start the server:
 
 ```
-RUST_LOG=debug cargo run --bin redis-server
+RUST_LOG=debug cargo run
 ```
 
 The [`tracing`](https://github.com/tokio-rs/tracing) crate is used to provide structured logs.
@@ -50,13 +50,13 @@ can be executed. For example:
 cargo run --example hello_world
 ```
 
-Additionally, a CLI client is provided to run arbitrary commands from the
+Additionally, a redis [CLI](https://redis.io/docs/latest/operate/rs/references/cli-utilities/redis-cli/) is provided to run arbitrary commands from the
 terminal. With the server running, the following works:
 
 ```
-cargo run --bin redis-cli set foo bar
+redis-cli set foo bar
 
-cargo run --bin redis-cli get foo
+redis-cli get foo
 ```
 
 ## OpenTelemetry
@@ -75,7 +75,7 @@ providers if needed.
 
 To enable sending traces to X-Ray, use the `otel` feature:
 ```
-RUST_LOG=debug cargo run --bin redis-server --features otel
+RUST_LOG=debug cargo run --features otel
 ```
 
 This will switch `tracing` to use `tracing-opentelemetry`. You will need to
@@ -89,6 +89,7 @@ https://github.com/aws-observability/aws-otel-collector/blob/main/docs/developer
 `redis` currently supports the following commands.
 
 * [PING](https://redis.io/commands/ping)
+* [ECHO](https://redis.io/commands/echo/)
 * [GET](https://redis.io/commands/get)
 * [SET](https://redis.io/commands/set)
 * [PUBLISH](https://redis.io/commands/publish)

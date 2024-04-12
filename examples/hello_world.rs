@@ -5,7 +5,7 @@
 //!
 //! You can test this out by running:
 //!
-//!     cargo run --bin redis-server
+//!     cargo run
 //!
 //! And then in another terminal run:
 //!
