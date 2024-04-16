@@ -6,7 +6,7 @@
 //!
 //! The `clap` crate is used for parsing arguments.
 
-use redis::{server, DEFAULT_PORT};
+use redis::{config::Config, server, DEFAULT_PORT};
 
 use clap::Parser;
 use tokio::net::TcpListener;
@@ -33,12 +33,13 @@ pub async fn main() -> redis::Result<()> {
     set_up_logging()?;
 
     let cli = Cli::parse();
-    let port = cli.port.unwrap_or(DEFAULT_PORT);
 
-    // Bind a TCP listener
-    let listener = TcpListener::bind(&format!("127.0.0.1:{}", port)).await?;
+    let listener =
+        TcpListener::bind(&format!("127.0.0.1:{}", cli.port.unwrap_or(DEFAULT_PORT))).await?;
 
-    server::run(listener, signal::ctrl_c()).await;
+    let config = Config::new(cli.port, cli.replicaof.is_some());
+
+    server::run(listener, config, signal::ctrl_c()).await;
 
     Ok(())
 }
@@ -48,6 +49,8 @@ pub async fn main() -> redis::Result<()> {
 struct Cli {
     #[clap(long)]
     port: Option<u16>,
+    #[arg(long, num_args = 2, value_names = ["HOST", "PORT"])]
+    replicaof: Option<Vec<String>>,
 }
 
 #[cfg(not(feature = "otel"))]

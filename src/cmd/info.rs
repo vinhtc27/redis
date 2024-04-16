@@ -1,4 +1,6 @@
-use crate::{Connection, Frame, Parse, ParseError};
+use std::str::from_utf8;
+
+use crate::{config::Config, Connection, Frame, Parse, ParseError};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -25,14 +27,16 @@ impl Info {
     }
 
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
         let response = match self.sections {
             None => unimplemented!(),
             Some(sections) => match sections.len() {
                 1 => {
-                    if std::str::from_utf8(sections.first().unwrap()).unwrap() == "replication" {
-                        let info = "# Replication\nrole:master\nconnected_slaves:0\nmaster_failover_state:no-failover\nmaster_replid:c7282793444f6422eeeeadb2a27619744abba897\nmaster_replid2:0000000000000000000000000000000000000000\nmaster_repl_offset:0\nsecond_repl_offset:-1\nrepl_backlog_active:0\nrepl_backlog_size:1048576\nrepl_backlog_first_byte_offset:0\nrepl_backlog_histlen:0";
-                        Frame::Bulk(Bytes::from(info.as_bytes()))
+                    let section = from_utf8(sections.first().unwrap()).unwrap().to_lowercase();
+                    if section == "replication" {
+                        Frame::Bulk(Bytes::from(config.replication()))
+                    } else if section == "server" {
+                        Frame::Bulk(Bytes::from(config.server()))
                     } else {
                         unimplemented!()
                     }

@@ -3,6 +3,7 @@
 //! Provides an async `run` function that listens for inbound connections,
 //! spawning a task per connection.
 
+use crate::config::Config;
 use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
@@ -16,6 +17,8 @@ use tracing::{debug, error, info, instrument};
 /// which performs the TCP listening and initialization of per-connection state.
 #[derive(Debug)]
 struct Listener {
+    config: Config,
+
     /// Shared database handle.
     ///
     /// Contains the key / value store as well as the broadcast channels for
@@ -67,6 +70,8 @@ struct Listener {
 /// commands to `db`.
 #[derive(Debug)]
 struct Handler {
+    config: Config,
+
     /// Shared database handle.
     ///
     /// When a command is received from `connection`, it is applied with `db`.
@@ -120,7 +125,7 @@ const MAX_CONNECTIONS: usize = 250;
 ///
 /// `tokio::signal::ctrl_c()` can be used as the `shutdown` argument. This will
 /// listen for a SIGINT signal.
-pub async fn run(listener: TcpListener, shutdown: impl Future) {
+pub async fn run(listener: TcpListener, config: Config, shutdown: impl Future) {
     // When the provided `shutdown` future completes, we must send a shutdown
     // message to all active connections. We use a broadcast channel for this
     // purpose. The call below ignores the receiver of the broadcast pair, and when
@@ -132,6 +137,7 @@ pub async fn run(listener: TcpListener, shutdown: impl Future) {
     // Initialize the listener state
     let mut server = Listener {
         listener,
+        config,
         db_holder: DbDropGuard::new(),
         limit_connections: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
         notify_shutdown,
@@ -239,6 +245,8 @@ impl Listener {
 
             // Create the necessary per-connection handler state.
             let mut handler = Handler {
+                config: self.config.clone(),
+
                 // Get a handle to the shared database.
                 db: self.db_holder.db(),
 
@@ -361,8 +369,13 @@ impl Handler {
             // command to write response frames directly to the connection. In
             // the case of pub/sub, multiple frames may be send back to the
             // peer.
-            cmd.apply(&self.db, &mut self.connection, &mut self.shutdown)
-                .await?;
+            cmd.apply(
+                &self.db,
+                &self.config,
+                &mut self.connection,
+                &mut self.shutdown,
+            )
+            .await?;
         }
 
         Ok(())

@@ -22,7 +22,7 @@ pub use subscribe::{Subscribe, Unsubscribe};
 mod unknown;
 pub use unknown::Unknown;
 
-use crate::{Connection, Db, Frame, Parse, ParseError, Shutdown};
+use crate::{config::Config, Connection, Db, Frame, Parse, ParseError, Shutdown};
 
 /// Enumeration of supported Redis commands.
 ///
@@ -100,6 +100,7 @@ impl Command {
     pub(crate) async fn apply(
         self,
         db: &Db,
+        config: &Config,
         dst: &mut Connection,
         shutdown: &mut Shutdown,
     ) -> crate::Result<()> {
@@ -108,7 +109,7 @@ impl Command {
         match self {
             Ping(cmd) => cmd.apply(dst).await,
             Echo(cmd) => cmd.apply(dst).await,
-            Info(cmd) => cmd.apply(dst).await,
+            Info(cmd) => cmd.apply(config, dst).await,
             Get(cmd) => cmd.apply(db, dst).await,
             Set(cmd) => cmd.apply(db, dst).await,
             Publish(cmd) => cmd.apply(db, dst).await,
