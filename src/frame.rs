@@ -13,7 +13,8 @@ use std::string::FromUtf8Error;
 pub enum Frame {
     Simple(String),
     Error(String),
-    Integer(u64),
+    Integer(i64),
+    UnsignedInteger(u64),
     Bulk(Bytes),
     Null,
     Array(Vec<Frame>),
@@ -48,15 +49,15 @@ impl Frame {
         }
     }
 
-    /// Push an "integer" frame into the array. `self` must be an Array frame.
+    /// Push an "unsigned integer" frame into the array. `self` must be an Array frame.
     ///
     /// # Panics
     ///
     /// panics if `self` is not an array
-    pub(crate) fn push_int(&mut self, value: u64) {
+    pub(crate) fn push_uint(&mut self, value: u64) {
         match self {
             Frame::Array(vec) => {
-                vec.push(Frame::Integer(value));
+                vec.push(Frame::UnsignedInteger(value));
             }
             _ => panic!("not an array frame"),
         }
@@ -125,7 +126,7 @@ impl Frame {
             }
             b':' => {
                 let len = get_decimal(src)?;
-                Ok(Frame::Integer(len))
+                Ok(Frame::UnsignedInteger(len))
             }
             b'$' => {
                 if b'-' == peek_u8(src)? {
@@ -191,6 +192,7 @@ impl fmt::Display for Frame {
             Frame::Simple(response) => response.fmt(fmt),
             Frame::Error(msg) => write!(fmt, "error: {}", msg),
             Frame::Integer(num) => num.fmt(fmt),
+            Frame::UnsignedInteger(num) => num.fmt(fmt),
             Frame::Bulk(msg) => match str::from_utf8(msg) {
                 Ok(string) => string.fmt(fmt),
                 Err(_) => write!(fmt, "{:?}", msg),

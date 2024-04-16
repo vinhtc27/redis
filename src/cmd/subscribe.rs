@@ -255,7 +255,7 @@ fn make_subscribe_frame(channel_name: String, num_subs: usize) -> Frame {
     let mut response = Frame::array();
     response.push_bulk(Bytes::from_static(b"subscribe"));
     response.push_bulk(Bytes::from(channel_name));
-    response.push_int(num_subs as u64);
+    response.push_uint(num_subs as u64);
     response
 }
 
@@ -264,7 +264,7 @@ fn make_unsubscribe_frame(channel_name: String, num_subs: usize) -> Frame {
     let mut response = Frame::array();
     response.push_bulk(Bytes::from_static(b"unsubscribe"));
     response.push_bulk(Bytes::from(channel_name));
-    response.push_int(num_subs as u64);
+    response.push_uint(num_subs as u64);
     response
 }
 

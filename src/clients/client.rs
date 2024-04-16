@@ -345,7 +345,7 @@ impl Client {
 
         // Read the response
         match self.read_response().await? {
-            Frame::Integer(response) => Ok(response),
+            Frame::UnsignedInteger(response) => Ok(response),
             frame => Err(frame.to_error()),
         }
     }

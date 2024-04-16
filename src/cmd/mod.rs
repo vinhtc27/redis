@@ -7,6 +7,12 @@ pub use echo::Echo;
 mod info;
 pub use info::Info;
 
+mod replconf;
+pub use replconf::ReplConf;
+
+mod psync;
+pub use psync::PSync;
+
 mod get;
 pub use get::Get;
 
@@ -32,6 +38,8 @@ pub enum Command {
     Ping(Ping),
     Echo(Echo),
     Info(Info),
+    ReplConf(ReplConf),
+    PSync(PSync),
     Get(Get),
     Set(Set),
     Publish(Publish),
@@ -68,6 +76,8 @@ impl Command {
             "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
             "echo" => Command::Echo(Echo::parse_frames(&mut parse)?),
             "info" => Command::Info(Info::parse_frames(&mut parse)?),
+            "replconf" => Command::ReplConf(ReplConf::parse_frames(&mut parse)?),
+            "psync" => Command::PSync(PSync::parse_frames(&mut parse)?),
             "get" => Command::Get(Get::parse_frames(&mut parse)?),
             "set" => Command::Set(Set::parse_frames(&mut parse)?),
             "publish" => Command::Publish(Publish::parse_frames(&mut parse)?),
@@ -110,6 +120,8 @@ impl Command {
             Ping(cmd) => cmd.apply(dst).await,
             Echo(cmd) => cmd.apply(dst).await,
             Info(cmd) => cmd.apply(config, dst).await,
+            ReplConf(cmd) => cmd.apply(dst).await,
+            PSync(cmd) => cmd.apply(dst).await,
             Get(cmd) => cmd.apply(db, dst).await,
             Set(cmd) => cmd.apply(db, dst).await,
             Publish(cmd) => cmd.apply(db, dst).await,
@@ -127,6 +139,8 @@ impl Command {
             Command::Ping(_) => "ping",
             Command::Echo(_) => "echo",
             Command::Info(_) => "info",
+            Command::ReplConf(_) => "replconf",
+            Command::PSync(_) => "psync",
             Command::Get(_) => "get",
             Command::Set(_) => "set",
             Command::Publish(_) => "pub",

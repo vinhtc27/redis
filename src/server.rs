@@ -142,7 +142,19 @@ pub async fn run(
     let (notify_shutdown, _) = broadcast::channel(1);
     let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel(1);
 
-    let client = ReplicaClient::connect(master).await?;
+    let client = match master {
+        Some(address) => {
+            let port = config.server_tcp_port().to_string();
+
+            let mut client = ReplicaClient::connect(address).await?;
+            let _ = client.ping(None).await?;
+            let _ = client.replconf("listening-port", port.into()).await?;
+            let _ = client.psync("?", -1).await?;
+
+            Some(client)
+        }
+        None => None,
+    };
 
     // Initialize the listener state
     let mut server = Listener {

@@ -163,7 +163,7 @@ impl Connection {
                 self.stream.write_u8(b'*').await?;
 
                 // Encode the length of the array.
-                self.write_decimal(val.len() as u64).await?;
+                self.write_decimal_uint(val.len() as u64).await?;
 
                 // Iterate and encode each entry in the array.
                 for entry in &**val {
@@ -195,7 +195,11 @@ impl Connection {
             }
             Frame::Integer(val) => {
                 self.stream.write_u8(b':').await?;
-                self.write_decimal(*val).await?;
+                self.write_decimal_int(*val).await?;
+            }
+            Frame::UnsignedInteger(val) => {
+                self.stream.write_u8(b':').await?;
+                self.write_decimal_uint(*val).await?;
             }
             Frame::Null => {
                 self.stream.write_all(b"$-1\r\n").await?;
@@ -204,7 +208,7 @@ impl Connection {
                 let len = val.len();
 
                 self.stream.write_u8(b'$').await?;
-                self.write_decimal(len as u64).await?;
+                self.write_decimal_uint(len as u64).await?;
                 self.stream.write_all(val).await?;
                 self.stream.write_all(b"\r\n").await?;
             }
@@ -218,8 +222,24 @@ impl Connection {
         Ok(())
     }
 
-    /// Write a decimal frame to the stream
-    async fn write_decimal(&mut self, val: u64) -> io::Result<()> {
+    /// Write a decimal integer frame to the stream
+    async fn write_decimal_int(&mut self, val: i64) -> io::Result<()> {
+        use std::io::Write;
+
+        // Convert the value to a string
+        let mut buf = [0u8; 20];
+        let mut buf = Cursor::new(&mut buf[..]);
+        write!(&mut buf, "{}", val)?;
+
+        let pos = buf.position() as usize;
+        self.stream.write_all(&buf.get_ref()[..pos]).await?;
+        self.stream.write_all(b"\r\n").await?;
+
+        Ok(())
+    }
+
+    /// Write a decimal unsigned integer frame to the stream
+    async fn write_decimal_uint(&mut self, val: u64) -> io::Result<()> {
         use std::io::Write;
 
         // Convert the value to a string

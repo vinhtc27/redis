@@ -95,13 +95,13 @@ impl Set {
             Ok(s) if s.to_uppercase() == "EX" => {
                 // An expiration is specified in seconds. The next value is an
                 // integer.
-                let secs = parse.next_int()?;
+                let secs = parse.next_uint()?;
                 expire = Some(Duration::from_secs(secs));
             }
             Ok(s) if s.to_uppercase() == "PX" => {
                 // An expiration is specified in milliseconds. The next value is
                 // an integer.
-                let ms = parse.next_int()?;
+                let ms = parse.next_uint()?;
                 expire = Some(Duration::from_millis(ms));
             }
             // Currently, redis does not support any of the other SET
@@ -154,7 +154,7 @@ impl Set {
             // src/bin/cli.rs parses the expiration argument as milliseconds
             // in duration_from_ms_str()
             frame.push_bulk(Bytes::from("px".as_bytes()));
-            frame.push_int(ms.as_millis() as u64);
+            frame.push_uint(ms.as_millis() as u64);
         }
         frame
     }

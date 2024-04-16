@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use crate::{util, DEFAULT_PORT};
+use crate::DEFAULT_PORT;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -24,7 +24,7 @@ impl Config {
                     ReplicationRole::Master
                 },
                 connected_slaves: 0,
-                master_replid: util::random_string(40),
+                master_replid: String::new(),
                 master_repl_offset: 0,
                 second_repl_offset: -1,
                 repl_backlog_active: 0,
@@ -41,6 +41,10 @@ impl Config {
 
     pub fn replication(&self) -> String {
         self.replication_config.to_string()
+    }
+
+    pub fn server_tcp_port(&self) -> u16 {
+        self.server_config.tcp_port
     }
 }
 
@@ -63,14 +67,14 @@ impl Display for ServerConfig {
 #[derive(Debug, Clone)]
 pub struct ReplicationConfig {
     role: ReplicationRole,
-    connected_slaves: i32,
+    connected_slaves: i64,
     master_replid: String,
-    master_repl_offset: i32,
-    second_repl_offset: i32,
-    repl_backlog_active: i32,
-    repl_backlog_size: i32,
-    repl_backlog_first_byte_offset: i32,
-    repl_backlog_histlen: i32,
+    master_repl_offset: i64,
+    second_repl_offset: i64,
+    repl_backlog_active: i64,
+    repl_backlog_size: i64,
+    repl_backlog_first_byte_offset: i64,
+    repl_backlog_histlen: i64,
 }
 
 impl Display for ReplicationConfig {

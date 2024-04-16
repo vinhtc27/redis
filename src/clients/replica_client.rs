@@ -1,4 +1,4 @@
-use crate::cmd::Ping;
+use crate::cmd::{PSync, Ping, ReplConf};
 use crate::{Connection, Frame};
 
 use bytes::Bytes;
@@ -12,21 +12,43 @@ pub struct ReplicaClient {
 }
 
 impl ReplicaClient {
-    pub async fn connect<T: ToSocketAddrs>(
-        addr: Option<T>,
-    ) -> crate::Result<Option<ReplicaClient>> {
-        if addr.is_none() {
-            return Ok(None);
-        }
-        let socket = TcpStream::connect(addr.unwrap()).await?;
+    pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<ReplicaClient> {
+        let socket = TcpStream::connect(addr).await?;
         let connection = Connection::new(socket);
 
-        Ok(Some(ReplicaClient { connection }))
+        Ok(ReplicaClient { connection })
     }
 
     #[instrument(skip(self))]
     pub async fn ping(&mut self, msg: Option<Bytes>) -> crate::Result<Bytes> {
         let frame = Ping::new(msg).into_frame();
+        debug!(request = ?frame);
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(value) => Ok(value.into()),
+            Frame::Bulk(value) => Ok(value),
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    #[instrument(skip(self))]
+    pub async fn replconf(&mut self, key: &str, value: Bytes) -> crate::Result<Bytes> {
+        let frame = ReplConf::new(key, value).into_frame();
+        debug!(request = ?frame);
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(value) => Ok(value.into()),
+            Frame::Bulk(value) => Ok(value),
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    #[instrument(skip(self))]
+    pub async fn psync(&mut self, replicationid: &str, offset: i64) -> crate::Result<Bytes> {
+        let frame = PSync::new(replicationid, offset).into_frame();
+
         debug!(request = ?frame);
         self.connection.write_frame(&frame).await?;
 
