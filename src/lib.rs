@@ -46,6 +46,8 @@ use parse::{Parse, ParseError};
 
 pub mod config;
 
+pub mod util;
+
 pub mod server;
 
 mod shutdown;
