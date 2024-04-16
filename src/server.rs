@@ -3,8 +3,9 @@
 //! Provides an async `run` function that listens for inbound connections,
 //! spawning a task per connection.
 
+use crate::clients::ReplicaClient;
 use crate::config::Config;
-use crate::{Client, Command, Connection, Db, DbDropGuard, Shutdown};
+use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
 use std::sync::Arc;
@@ -19,7 +20,7 @@ use tracing::{debug, error, info, instrument};
 struct Listener {
     config: Config,
     #[allow(dead_code)]
-    client: Option<Client>,
+    client: Option<ReplicaClient>,
 
     /// Shared database handle.
     ///
@@ -141,14 +142,7 @@ pub async fn run(
     let (notify_shutdown, _) = broadcast::channel(1);
     let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel(1);
 
-    let client = match master {
-        Some(address) => {
-            let mut client = Client::connect(address).await?;
-            let _ = client.ping(None).await?;
-            Some(client)
-        }
-        None => None,
-    };
+    let client = ReplicaClient::connect(master).await?;
 
     // Initialize the listener state
     let mut server = Listener {
