@@ -2,7 +2,7 @@
 //!
 //! Provides an async connect and methods for issuing the supported commands.
 
-use crate::cmd::{Echo, Get, Ping, Publish, Set, Subscribe, Unsubscribe};
+use crate::cmd::{Echo, Get, Info, Ping, Publish, Set, Subscribe, Unsubscribe};
 use crate::{Connection, Frame};
 
 use async_stream::try_stream;
@@ -140,6 +140,19 @@ impl Client {
     #[instrument(skip(self))]
     pub async fn echo(&mut self, msg: Bytes) -> crate::Result<Bytes> {
         let frame = Echo::new(msg).into_frame();
+        debug!(request = ?frame);
+        self.connection.write_frame(&frame).await?;
+
+        match self.read_response().await? {
+            Frame::Simple(value) => Ok(value.into()),
+            Frame::Bulk(value) => Ok(value),
+            frame => Err(frame.to_error()),
+        }
+    }
+
+    #[instrument(skip(self))]
+    pub async fn info(&mut self, sections: Option<Vec<Bytes>>) -> crate::Result<Bytes> {
+        let frame = Info::new(sections).into_frame();
         debug!(request = ?frame);
         self.connection.write_frame(&frame).await?;
 

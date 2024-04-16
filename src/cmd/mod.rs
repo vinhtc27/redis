@@ -4,6 +4,9 @@ pub use ping::Ping;
 mod echo;
 pub use echo::Echo;
 
+mod info;
+pub use info::Info;
+
 mod get;
 pub use get::Get;
 
@@ -28,6 +31,7 @@ use crate::{Connection, Db, Frame, Parse, ParseError, Shutdown};
 pub enum Command {
     Ping(Ping),
     Echo(Echo),
+    Info(Info),
     Get(Get),
     Set(Set),
     Publish(Publish),
@@ -63,6 +67,7 @@ impl Command {
         let command = match &command_name[..] {
             "ping" => Command::Ping(Ping::parse_frames(&mut parse)?),
             "echo" => Command::Echo(Echo::parse_frames(&mut parse)?),
+            "info" => Command::Info(Info::parse_frames(&mut parse)?),
             "get" => Command::Get(Get::parse_frames(&mut parse)?),
             "set" => Command::Set(Set::parse_frames(&mut parse)?),
             "publish" => Command::Publish(Publish::parse_frames(&mut parse)?),
@@ -103,6 +108,7 @@ impl Command {
         match self {
             Ping(cmd) => cmd.apply(dst).await,
             Echo(cmd) => cmd.apply(dst).await,
+            Info(cmd) => cmd.apply(dst).await,
             Get(cmd) => cmd.apply(db, dst).await,
             Set(cmd) => cmd.apply(db, dst).await,
             Publish(cmd) => cmd.apply(db, dst).await,
@@ -119,6 +125,7 @@ impl Command {
         match self {
             Command::Ping(_) => "ping",
             Command::Echo(_) => "echo",
+            Command::Info(_) => "info",
             Command::Get(_) => "get",
             Command::Set(_) => "set",
             Command::Publish(_) => "pub",
