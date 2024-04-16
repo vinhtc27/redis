@@ -6,7 +6,8 @@
 #
 # DON'T EDIT THIS!
 exec cargo run \
+    --quiet \
     --release \
-    --target-dir=target/debug \
+    --target-dir=/tmp/codecrafters-redis-target \
     --manifest-path $(dirname $0)/Cargo.toml \
     -- "$@"
