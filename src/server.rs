@@ -18,6 +18,7 @@ use tracing::{debug, error, info, instrument};
 #[derive(Debug)]
 struct Listener {
     config: Config,
+    #[allow(dead_code)]
     client: Option<Client>,
 
     /// Shared database handle.
