@@ -4,7 +4,7 @@
 //! spawning a task per connection.
 
 use crate::config::Config;
-use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
+use crate::{Client, Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
 use std::sync::Arc;
@@ -18,6 +18,7 @@ use tracing::{debug, error, info, instrument};
 #[derive(Debug)]
 struct Listener {
     config: Config,
+    client: Option<Client>,
 
     /// Shared database handle.
     ///
@@ -125,7 +126,12 @@ const MAX_CONNECTIONS: usize = 250;
 ///
 /// `tokio::signal::ctrl_c()` can be used as the `shutdown` argument. This will
 /// listen for a SIGINT signal.
-pub async fn run(listener: TcpListener, config: Config, shutdown: impl Future) {
+pub async fn run(
+    listener: TcpListener,
+    config: Config,
+    master: Option<String>,
+    shutdown: impl Future,
+) -> crate::Result<()> {
     // When the provided `shutdown` future completes, we must send a shutdown
     // message to all active connections. We use a broadcast channel for this
     // purpose. The call below ignores the receiver of the broadcast pair, and when
@@ -134,10 +140,20 @@ pub async fn run(listener: TcpListener, config: Config, shutdown: impl Future) {
     let (notify_shutdown, _) = broadcast::channel(1);
     let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel(1);
 
+    let client = match master {
+        Some(address) => {
+            let mut client = Client::connect(address).await?;
+            let _ = client.ping(None).await?;
+            Some(client)
+        }
+        None => None,
+    };
+
     // Initialize the listener state
     let mut server = Listener {
         listener,
         config,
+        client,
         db_holder: DbDropGuard::new(),
         limit_connections: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
         notify_shutdown,
@@ -201,6 +217,8 @@ pub async fn run(listener: TcpListener, config: Config, shutdown: impl Future) {
     // `Sender` instances are held by connection handler tasks. When those drop,
     // the `mpsc` channel will close and `recv()` will return `None`.
     let _ = shutdown_complete_rx.recv().await;
+
+    Ok(())
 }
 
 impl Listener {

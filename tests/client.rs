@@ -133,9 +133,11 @@ async fn start_server() -> (SocketAddr, JoinHandle<()>) {
         server::run(
             listener,
             Config::new(Some(0), false),
+            None,
             tokio::signal::ctrl_c(),
         )
         .await
+        .unwrap()
     });
 
     (addr, handle)

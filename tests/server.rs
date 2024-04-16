@@ -406,6 +406,7 @@ async fn start_server() -> SocketAddr {
         server::run(
             listener,
             Config::new(Some(0), false),
+            None,
             tokio::signal::ctrl_c(),
         )
         .await

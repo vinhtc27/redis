@@ -20,6 +20,7 @@ use tracing::{debug, instrument};
 /// the [`connect`](fn@connect) function.
 ///
 /// Requests are issued using the various methods of `Client`.
+#[derive(Debug)]
 pub struct Client {
     /// The TCP connection decorated with the redis protocol encoder / decoder
     /// implemented using a buffered `TcpStream`.
