@@ -150,7 +150,7 @@ pub async fn run(
             let _ = client.ping(None).await?;
             let _ = client.replconf("listening-port", port.into()).await?;
             let _ = client.replconf("capa", "psync2".into()).await?;
-            // let _ = client.psync("?", -1).await?;
+            let _ = client.psync("?", -1).await?;
 
             Some(client)
         }
