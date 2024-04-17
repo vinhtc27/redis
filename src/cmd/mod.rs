@@ -110,7 +110,7 @@ impl Command {
     pub(crate) async fn apply(
         self,
         db: &Db,
-        config: &Config,
+        config: &mut Config,
         dst: &mut Connection,
         shutdown: &mut Shutdown,
     ) -> crate::Result<()> {
@@ -121,7 +121,7 @@ impl Command {
             Echo(cmd) => cmd.apply(dst).await,
             Info(cmd) => cmd.apply(config, dst).await,
             ReplConf(cmd) => cmd.apply(dst).await,
-            PSync(cmd) => cmd.apply(dst).await,
+            PSync(cmd) => cmd.apply(config, dst).await,
             Get(cmd) => cmd.apply(db, dst).await,
             Set(cmd) => cmd.apply(db, dst).await,
             Publish(cmd) => cmd.apply(db, dst).await,

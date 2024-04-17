@@ -24,7 +24,11 @@ impl Config {
                     ReplicationRole::Master
                 },
                 connected_slaves: 0,
-                master_replid: util::random_string(40),
+                master_replid: if is_replication {
+                    String::new()
+                } else {
+                    util::random_string(40)
+                },
                 master_repl_offset: 0,
                 second_repl_offset: -1,
                 repl_backlog_active: 0,
@@ -39,12 +43,28 @@ impl Config {
         self.server_config.to_string()
     }
 
+    pub fn server_tcp_port(&self) -> u16 {
+        self.server_config.tcp_port
+    }
+
     pub fn replication(&self) -> String {
         self.replication_config.to_string()
     }
 
-    pub fn server_tcp_port(&self) -> u16 {
-        self.server_config.tcp_port
+    pub fn master_replid_and_offset(&self) -> (String, String) {
+        (
+            self.replication_config.master_replid.clone(),
+            self.replication_config.master_repl_offset.to_string(),
+        )
+    }
+
+    pub fn set_master_replid_and_offset(&mut self, master_replid: String, master_repl_offset: i64) {
+        self.replication_config.master_replid = master_replid;
+        self.replication_config.master_repl_offset = master_repl_offset;
+    }
+
+    pub fn set_second_repl_offset(&mut self, second_repl_offset: i64) {
+        self.replication_config.second_repl_offset = second_repl_offset;
     }
 }
 

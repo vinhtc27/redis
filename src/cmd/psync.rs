@@ -1,4 +1,4 @@
-use crate::{util, Connection, Frame, Parse};
+use crate::{config::Config, Connection, Frame, Parse};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -26,12 +26,15 @@ impl PSync {
     }
 
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
-        let (replicationid, offset) = if self.replicationid == "?" && self.offset == -1 {
-            (util::random_string(40), 0.to_string())
-        } else {
-            (self.replicationid.to_owned(), self.offset.to_string())
+    pub(crate) async fn apply(
+        self,
+        config: &mut Config,
+        dst: &mut Connection,
+    ) -> crate::Result<()> {
+        if self.replicationid == "?" && self.offset == -1 {
+            config.set_second_repl_offset(0);
         };
+        let (replicationid, offset) = config.master_replid_and_offset();
         let response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
         debug!(?response);
 
