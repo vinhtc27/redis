@@ -1,28 +1,41 @@
-use crate::{Connection, Frame, Parse};
+use crate::{parse::ParseError, Connection, Frame, Parse};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
 #[derive(Debug, Default)]
 pub struct ReplConf {
-    #[allow(dead_code)]
-    key: Option<String>,
-    #[allow(dead_code)]
-    value: Option<Bytes>,
+    pairs: Option<Vec<(String, Bytes)>>,
 }
 
 impl ReplConf {
-    pub fn new(key: impl ToString, value: Bytes) -> ReplConf {
+    pub fn new(pairs: Vec<(impl ToString, Bytes)>) -> ReplConf {
         ReplConf {
-            key: Some(key.to_string()),
-            value: Some(value),
+            pairs: Some(
+                pairs
+                    .into_iter()
+                    .map(|(key, value)| (key.to_string(), value))
+                    .collect(),
+            ),
         }
     }
 
     pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<ReplConf> {
-        let key = parse.next_string()?;
-        let value = parse.next_bytes()?;
+        let mut pairs = vec![];
+        loop {
+            let key = match parse.next_string() {
+                Ok(key) => key,
+                Err(ParseError::EndOfStream) => break,
+                Err(e) => return Err(e.into()),
+            };
+            let value = match parse.next_bytes() {
+                Ok(value) => value,
+                Err(ParseError::EndOfStream) => break,
+                Err(e) => return Err(e.into()),
+            };
+            pairs.push((key, value));
+        }
 
-        Ok(ReplConf::new(key, value))
+        Ok(ReplConf::new(pairs))
     }
 
     #[instrument(skip(self, dst))]
@@ -38,12 +51,13 @@ impl ReplConf {
     pub(crate) fn into_frame(self) -> Frame {
         let mut frame = Frame::array();
         frame.push_bulk(Bytes::from("replconf".as_bytes()));
-        if self.key.is_some() {
-            frame.push_bulk(Bytes::from(self.key.unwrap().into_bytes()));
+        if self.pairs.is_some() {
+            for pair in self.pairs.unwrap() {
+                frame.push_bulk(Bytes::from(pair.0.into_bytes()));
+                frame.push_bulk(pair.1);
+            }
         }
-        if self.value.is_some() {
-            frame.push_bulk(self.value.unwrap());
-        }
+
         frame
     }
 }

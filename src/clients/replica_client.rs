@@ -33,8 +33,8 @@ impl ReplicaClient {
     }
 
     #[instrument(skip(self))]
-    pub async fn replconf(&mut self, key: &str, value: Bytes) -> crate::Result<Bytes> {
-        let frame = ReplConf::new(key, value).into_frame();
+    pub async fn replconf(&mut self, pairs: Vec<(&str, Bytes)>) -> crate::Result<Bytes> {
+        let frame = ReplConf::new(pairs).into_frame();
         debug!(request = ?frame);
         self.connection.write_frame(&frame).await?;
 
