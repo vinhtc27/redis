@@ -42,7 +42,7 @@ impl PSync {
 
     pub(crate) fn into_frame(self) -> Frame {
         let mut frame = Frame::array();
-        frame.push_bulk(Bytes::from("PSync".as_bytes()));
+        frame.push_bulk(Bytes::from("psync".as_bytes()));
         frame.push_bulk(Bytes::from(self.replicationid));
         frame.push_bulk(Bytes::from(self.offset.to_string()));
         frame
