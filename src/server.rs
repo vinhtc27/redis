@@ -150,13 +150,12 @@ pub async fn run(
 
             let mut client = ReplicaClient::connect(address).await?;
             let _ = client.ping(None).await?;
-            let res = client
-                .replconf(vec![
-                    ("listening-port", port.into()),
-                    ("capa", "psync2".into()),
-                ])
+            let _ = client
+                .replconf(vec![("listening-port", port.into())])
                 .await?;
-            println!("{:?}", res);
+            let _ = client
+                .replconf(vec![("capa", "eof".into()), ("capa", "psync2".into())])
+                .await?;
 
             // let psync_res = client.psync("?", -1).await?;
             // let mut psync_str = from_utf8(&psync_res)?.split_whitespace();
