@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use crate::DEFAULT_PORT;
+use crate::{util, DEFAULT_PORT};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -24,7 +24,7 @@ impl Config {
                     ReplicationRole::Master
                 },
                 connected_slaves: 0,
-                master_replid: String::new(),
+                master_replid: util::random_string(40),
                 master_repl_offset: 0,
                 second_repl_offset: -1,
                 repl_backlog_active: 0,
