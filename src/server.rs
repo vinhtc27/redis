@@ -8,7 +8,7 @@ use crate::config::Config;
 use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
-use std::str::from_utf8;
+// use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Semaphore};
@@ -131,7 +131,8 @@ const MAX_CONNECTIONS: usize = 250;
 /// listen for a SIGINT signal.
 pub async fn run(
     listener: TcpListener,
-    mut config: Config,
+    // mut config: Config,
+    config: Config,
     master: Option<String>,
     shutdown: impl Future,
 ) -> crate::Result<()> {
@@ -149,12 +150,14 @@ pub async fn run(
 
             let mut client = ReplicaClient::connect(address).await?;
             let _ = client.ping(None).await?;
-            let _ = client
+            let res = client
                 .replconf(vec![
                     ("listening-port", port.into()),
                     ("capa", "psync2".into()),
                 ])
                 .await?;
+            println!("{:?}", res);
+
             // let psync_res = client.psync("?", -1).await?;
             // let mut psync_str = from_utf8(&psync_res)?.split_whitespace();
             // let _ = psync_str.next();
