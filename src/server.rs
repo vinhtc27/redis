@@ -8,7 +8,7 @@ use crate::config::Config;
 use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
-// use std::str::from_utf8;
+use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Semaphore};
@@ -131,8 +131,7 @@ const MAX_CONNECTIONS: usize = 250;
 /// listen for a SIGINT signal.
 pub async fn run(
     listener: TcpListener,
-    // mut config: Config,
-    config: Config,
+    mut config: Config,
     master: Option<String>,
     shutdown: impl Future,
 ) -> crate::Result<()> {
@@ -157,15 +156,15 @@ pub async fn run(
                 .replconf(vec![("capa", "eof".into()), ("capa", "psync2".into())])
                 .await?;
 
-            // let psync_res = client.psync("?", -1).await?;
-            // let mut psync_str = from_utf8(&psync_res)?.split_whitespace();
-            // let _ = psync_str.next();
-            // let master_replid = psync_str.next().unwrap();
-            // let master_offset = psync_str.next().unwrap();
-            // config.set_master_replid_and_offset(
-            //     master_replid.to_owned(),
-            //     master_offset.parse::<i64>()?,
-            // );
+            let psync_res = client.psync("?", -1).await?;
+            let mut psync_str = from_utf8(&psync_res)?.split_whitespace();
+            let _ = psync_str.next();
+            let master_replid = psync_str.next().unwrap();
+            let master_offset = psync_str.next().unwrap();
+            config.set_master_replid_and_offset(
+                master_replid.to_owned(),
+                master_offset.parse::<i64>()?,
+            );
 
             Some(client)
         }
