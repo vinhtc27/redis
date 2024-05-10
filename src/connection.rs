@@ -217,7 +217,6 @@ impl Connection {
 
                 self.stream.write_u8(b'$').await?;
                 self.write_decimal_uint(len as u64).await?;
-                self.stream.write_all(b"\r\n").await?;
                 self.stream.write_all(val).await?;
             }
             // Encoding an `Array` from within a value cannot be done using a
