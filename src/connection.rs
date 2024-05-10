@@ -212,6 +212,14 @@ impl Connection {
                 self.stream.write_all(val).await?;
                 self.stream.write_all(b"\r\n").await?;
             }
+            Frame::File(val) => {
+                let len = val.len();
+
+                self.stream.write_u8(b'$').await?;
+                self.write_decimal_uint(len as u64).await?;
+                self.stream.write_all(b"\r\n").await?;
+                self.stream.write_all(val).await?;
+            }
             // Encoding an `Array` from within a value cannot be done using a
             // recursive strategy. In general, async fns do not support
             // recursion. redis has not needed to encode nested arrays yet,

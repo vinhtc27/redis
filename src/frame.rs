@@ -16,6 +16,7 @@ pub enum Frame {
     Integer(i64),
     UnsignedInteger(u64),
     Bulk(Bytes),
+    File(Bytes),
     Null,
     Array(Vec<Frame>),
 }
@@ -194,6 +195,10 @@ impl fmt::Display for Frame {
             Frame::Integer(num) => num.fmt(fmt),
             Frame::UnsignedInteger(num) => num.fmt(fmt),
             Frame::Bulk(msg) => match str::from_utf8(msg) {
+                Ok(string) => string.fmt(fmt),
+                Err(_) => write!(fmt, "{:?}", msg),
+            },
+            Frame::File(msg) => match str::from_utf8(msg) {
                 Ok(string) => string.fmt(fmt),
                 Err(_) => write!(fmt, "{:?}", msg),
             },

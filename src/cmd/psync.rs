@@ -2,6 +2,9 @@ use crate::{config::Config, Connection, Frame, Parse};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
+use base64::{engine::general_purpose, Engine};
+const EMPTY_RDB_FILE_BASE64: &[u8; 120] = b"UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+
 #[derive(Debug, Default)]
 pub struct PSync {
     #[allow(dead_code)]
@@ -35,10 +38,16 @@ impl PSync {
             config.set_second_repl_offset(0);
         };
         let (replicationid, offset) = config.master_replid_and_offset();
-        let response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
-        debug!(?response);
 
-        dst.write_frame(&response).await?;
+        let fullresync_response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
+        debug!(?fullresync_response);
+        dst.write_frame(&fullresync_response).await?;
+
+        let empty_rdb_file = general_purpose::STANDARD.decode(EMPTY_RDB_FILE_BASE64)?;
+
+        let rdb_response = Frame::File(empty_rdb_file.into());
+        debug!(?rdb_response);
+        dst.write_frame(&rdb_response).await?;
 
         Ok(())
     }
