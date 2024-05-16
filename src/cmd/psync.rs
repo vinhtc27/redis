@@ -1,4 +1,5 @@
 use crate::{config::Config, Connection, Frame, Parse};
+
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -13,9 +14,7 @@ static EMPTY_RDB_FILE: [u8; 88] = [
 
 #[derive(Debug, Default)]
 pub struct PSync {
-    #[allow(dead_code)]
     replicationid: String,
-    #[allow(dead_code)]
     offset: i64,
 }
 

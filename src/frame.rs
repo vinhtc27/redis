@@ -84,11 +84,15 @@ impl Frame {
                     // Skip '-1\r\n'
                     skip(src, 4)
                 } else {
-                    // Read the bulk string
+                    // Read the bulk string or file
                     let len: usize = get_decimal(src)?.try_into()?;
 
-                    // skip that number of bytes + 2 (\r\n).
-                    skip(src, len + 2)
+                    if src.remaining() == len {
+                        skip(src, len)
+                    } else {
+                        // skip that number of bytes + 2 (\r\n).
+                        skip(src, len + 2)
+                    }
                 }
             }
             b'*' => {
@@ -139,20 +143,25 @@ impl Frame {
 
                     Ok(Frame::Null)
                 } else {
-                    // Read the bulk string
+                    // Read the bulk string or file
                     let len = get_decimal(src)?.try_into()?;
                     let n = len + 2;
 
-                    if src.remaining() < n {
-                        return Err(Error::Incomplete);
+                    if src.remaining() == len {
+                        let data = Bytes::copy_from_slice(&src.chunk());
+
+                        // file is similar to Bulk, but without the trailing (\r\n)
+                        Ok(Frame::File(data))
+                    } else if src.remaining() < n {
+                        Err(Error::Incomplete)
+                    } else {
+                        let data = Bytes::copy_from_slice(&src.chunk()[..len]);
+
+                        // skip that number of bytes + 2 (\r\n).
+                        skip(src, n)?;
+
+                        Ok(Frame::Bulk(data))
                     }
-
-                    let data = Bytes::copy_from_slice(&src.chunk()[..len]);
-
-                    // skip that number of bytes + 2 (\r\n).
-                    skip(src, n)?;
-
-                    Ok(Frame::Bulk(data))
                 }
             }
             b'*' => {

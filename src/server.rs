@@ -3,15 +3,15 @@
 //! Provides an async `run` function that listens for inbound connections,
 //! spawning a task per connection.
 
-use crate::clients::ReplicaClient;
-use crate::config::Config;
-use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
+use crate::cmd::{PSync, Ping, ReplConf};
+use crate::config::{Config, ReplicationRole};
+use crate::{Command, Connection, Db, DbDropGuard, Frame, Shutdown};
 
 use std::future::Future;
 use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{broadcast, mpsc, Semaphore};
+use tokio::sync::{broadcast, mpsc, RwLock, Semaphore};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
 
@@ -19,9 +19,11 @@ use tracing::{debug, error, info, instrument};
 /// which performs the TCP listening and initialization of per-connection state.
 #[derive(Debug)]
 struct Listener {
+    /// Configuration settings for the redis-server.
     config: Config,
-    #[allow(dead_code)]
-    client: Option<ReplicaClient>,
+
+    /// All slave connected to the master redis.
+    connected_slaves: Arc<RwLock<Vec<Connection>>>,
 
     /// Shared database handle.
     ///
@@ -74,7 +76,11 @@ struct Listener {
 /// commands to `db`.
 #[derive(Debug)]
 struct Handler {
+    /// Configuration settings for the redis-server.
     config: Config,
+
+    /// All slave connected to the master redis.
+    connected_slaves: Arc<RwLock<Vec<Connection>>>,
 
     /// Shared database handle.
     ///
@@ -143,21 +149,49 @@ pub async fn run(
     let (notify_shutdown, _) = broadcast::channel(1);
     let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel(1);
 
-    let client = match master {
+    let connected_slaves = Arc::new(RwLock::new(vec![]));
+    let db_holder = DbDropGuard::new();
+    let limit_connections = Arc::new(Semaphore::new(MAX_CONNECTIONS));
+
+    match master {
         Some(address) => {
             let port = config.server_tcp_port().to_string();
 
-            let mut client = ReplicaClient::connect(address).await?;
-            let _ = client.ping(None).await?;
-            let _ = client
-                .replconf(vec![("listening-port", port.into())])
-                .await?;
-            let _ = client
-                .replconf(vec![("capa", "eof".into()), ("capa", "psync2".into())])
-                .await?;
+            let socket = TcpStream::connect(address).await?;
+            let mut connection = Connection::new(socket);
 
-            let psync_res = client.psync("?", -1).await?;
-            let mut psync_str = from_utf8(&psync_res)?.split_whitespace();
+            connection
+                .write_frame(&Ping::new(None).into_frame())
+                .await?;
+            let _ping = connection.read_frame().await?;
+
+            connection
+                .write_frame(&ReplConf::new(vec![("listening-port", port.into())]).into_frame())
+                .await?;
+            let _replconf1 = connection.read_frame().await?;
+
+            connection
+                .write_frame(
+                    &ReplConf::new(vec![("capa", "eof".into()), ("capa", "psync2".into())])
+                        .into_frame(),
+                )
+                .await?;
+            let _replconf2 = connection.read_frame().await?;
+
+            connection
+                .write_frame(&PSync::new("?", -1).into_frame())
+                .await?;
+            let psync = connection.read_frame().await?;
+            let _rdb_file_response = connection.read_frame().await?;
+
+            let result = match psync {
+                Some(Frame::Simple(value)) => Ok(value.into()),
+                Some(Frame::Bulk(value)) => Ok(value),
+                Some(frame) => Err(frame.to_error()),
+                None => Err("no response".into()),
+            }?;
+
+            let mut psync_str = from_utf8(&result)?.split_whitespace();
             let _ = psync_str.next();
             let master_replid = psync_str.next().unwrap();
             let master_offset = psync_str.next().unwrap();
@@ -166,18 +200,44 @@ pub async fn run(
                 master_offset.parse::<i64>()?,
             );
 
-            Some(client)
+            let db = db_holder.db();
+            let mut config = config.clone();
+            let mut shutdown = Shutdown::new(notify_shutdown.subscribe());
+            let permit = limit_connections.clone().acquire_owned().await.unwrap();
+            tokio::spawn(async move {
+                while !shutdown.is_shutdown() {
+                    let maybe_frame = tokio::select! {
+                        res = connection.read_frame() => res.unwrap(),
+                        _ = shutdown.recv() => {
+                            return;
+                        }
+                    };
+
+                    let frame = match maybe_frame {
+                        Some(frame) => frame,
+                        None => return,
+                    };
+
+                    let cmd = Command::from_frame(frame.clone()).unwrap();
+                    debug!(?cmd);
+
+                    cmd.apply(&db, &mut config, &mut connection, &mut shutdown)
+                        .await
+                        .unwrap();
+                }
+                drop(permit);
+            });
         }
-        None => None,
+        None => {}
     };
 
     // Initialize the listener state
     let mut server = Listener {
         listener,
         config,
-        client,
-        db_holder: DbDropGuard::new(),
-        limit_connections: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
+        connected_slaves,
+        db_holder,
+        limit_connections,
         notify_shutdown,
         shutdown_complete_tx,
     };
@@ -284,8 +344,10 @@ impl Listener {
             let socket = self.accept().await?;
 
             // Create the necessary per-connection handler state.
-            let mut handler = Handler {
+            let handler = Handler {
                 config: self.config.clone(),
+
+                connected_slaves: self.connected_slaves.clone(),
 
                 // Get a handle to the shared database.
                 db: self.db_holder.db(),
@@ -363,7 +425,7 @@ impl Handler {
     /// When the shutdown signal is received, the connection is processed until
     /// it reaches a safe state, at which point it is terminated.
     #[instrument(skip(self))]
-    async fn run(&mut self) -> crate::Result<()> {
+    async fn run(mut self) -> crate::Result<()> {
         // As long as the shutdown signal has not been received, try to read a
         // new request frame.
         while !self.shutdown.is_shutdown() {
@@ -389,7 +451,7 @@ impl Handler {
             // Convert the redis frame into a command struct. This returns an
             // error if the frame is not a valid redis command or it is an
             // unsupported command.
-            let cmd = Command::from_frame(frame)?;
+            let cmd = Command::from_frame(frame.clone())?;
 
             // Logs the `cmd` object. The syntax here is a shorthand provided by
             // the `tracing` crate. It can be thought of as similar to:
@@ -401,6 +463,30 @@ impl Handler {
             // `tracing` provides structured logging, so information is "logged"
             // as key-value pairs.
             debug!(?cmd);
+
+            // Propagates the write operation to all the slaves
+            match self.config.role() {
+                ReplicationRole::Master => match cmd {
+                    Command::Set(_) | Command::Publish(_) => {
+                        for connection in &mut *self.connected_slaves.write().await {
+                            connection.write_frame(&frame).await?;
+                        }
+                    }
+                    Command::PSync(_) => {
+                        cmd.apply(
+                            &self.db,
+                            &mut self.config,
+                            &mut self.connection,
+                            &mut self.shutdown,
+                        )
+                        .await?;
+                        self.connected_slaves.write().await.push(self.connection);
+                        return Ok(());
+                    }
+                    _ => {}
+                },
+                ReplicationRole::Slave => {}
+            }
 
             // Perform the work needed to apply the command. This may mutate the
             // database state as a result.

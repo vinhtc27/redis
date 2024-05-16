@@ -39,6 +39,10 @@ impl Config {
         }
     }
 
+    pub fn role(&self) -> &ReplicationRole {
+        &self.replication_config.role
+    }
+
     pub fn server(&self) -> String {
         self.server_config.to_string()
     }
@@ -125,7 +129,7 @@ impl Display for ReplicationConfig {
 }
 
 #[derive(Debug, Clone)]
-enum ReplicationRole {
+pub enum ReplicationRole {
     Master,
     Slave,
 }
