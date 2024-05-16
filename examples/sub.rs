@@ -22,7 +22,7 @@ use redis::{clients::Client, Result};
 #[tokio::main]
 pub async fn main() -> Result<()> {
     // Open a connection to the redis address.
-    let client = Client::connect("localhost:6379").await?;
+    let client = Client::connect("127.0.0.1:6379").await?;
 
     // subscribe to channel foo
     let mut subscriber = client.subscribe(vec!["foo".into()]).await?;

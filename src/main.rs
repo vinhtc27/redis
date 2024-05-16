@@ -17,7 +17,7 @@ pub async fn main() -> redis::Result<()> {
     let cli = Cli::parse();
 
     let listener =
-        TcpListener::bind(&format!("localhost:{}", cli.port.unwrap_or(DEFAULT_PORT))).await?;
+        TcpListener::bind(&format!("127.0.0.1:{}", cli.port.unwrap_or(DEFAULT_PORT))).await?;
 
     let (config, master) = match cli.replicaof {
         Some(replicaof) => {

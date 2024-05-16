@@ -60,7 +60,7 @@ impl BlockingClient {
     /// # Examples
     ///
     /// ```no_run
-    /// let client = match BlockingClient::connect("localhost:6379") {
+    /// let client = match BlockingClient::connect("127.0.0.1:6379") {
     ///     Ok(client) => client,
     ///     Err(_) => panic!("failed to establish connection"),
     /// };
@@ -84,7 +84,7 @@ impl BlockingClient {
     /// Demonstrates basic usage.
     ///
     /// ```no_run
-    /// let mut client = BlockingClient::connect("localhost:6379").unwrap();
+    /// let mut client = BlockingClient::connect("127.0.0.1:6379").unwrap();
     /// let val = client.get("foo").unwrap();
     /// println!("Got = {:?}", val);
     /// ```
@@ -105,7 +105,7 @@ impl BlockingClient {
     /// Demonstrates basic usage.
     ///
     /// ```no_run
-    /// let mut client = BlockingClient::connect("localhost:6379").unwrap();
+    /// let mut client = BlockingClient::connect("127.0.0.1:6379").unwrap();
     /// client.set("foo", "bar".into()).unwrap();
     /// let val = client.get("foo").unwrap().unwrap();
     /// assert_eq!(val, "bar");
@@ -133,7 +133,7 @@ impl BlockingClient {
     ///
     /// ```no_run
     /// let ttl = Duration::from_millis(500);
-    /// let mut client = BlockingClient::connect("localhost:6379").unwrap();
+    /// let mut client = BlockingClient::connect("127.0.0.1:6379").unwrap();
     /// client.set_expires("foo", "bar".into(), ttl).unwrap();
     /// let val = client.get("foo").unwrap().unwrap();
     /// assert_eq!(val, "bar");
@@ -162,7 +162,7 @@ impl BlockingClient {
     /// Demonstrates basic usage.
     ///
     /// ```no_run
-    /// let mut client = BlockingClient::connect("localhost:6379").unwrap();
+    /// let mut client = BlockingClient::connect("127.0.0.1:6379").unwrap();
     /// let val = client.publish("foo", "bar".into()).unwrap();
     /// println!("Got = {:?}", val);
     /// ```

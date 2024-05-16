@@ -62,7 +62,7 @@ impl Client {
     /// # Examples
     ///
     /// ```no_run
-    /// let client = match Client::connect("localhost:6379").await {
+    /// let client = match Client::connect("127.0.0.1:6379").await {
     ///     Ok(client) => client,
     ///     Err(_) => panic!("failed to establish connection"),
     /// };
@@ -98,7 +98,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     let pong = client.ping(None).await.unwrap();
     ///     assert_eq!(b"PONG", &pong[..]);
@@ -132,7 +132,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     let pong = client.echo(None).await.unwrap();
     ///     assert_eq!(b"PONG", &pong[..]);
@@ -177,7 +177,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     let val = client.get("foo").await.unwrap();
     ///     println!("Got = {:?}", val);
@@ -223,7 +223,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     client.set("foo", "bar".into()).await.unwrap();
     ///
@@ -265,7 +265,7 @@ impl Client {
     /// #[tokio::main]
     /// async fn main() {
     ///     let ttl = Duration::from_millis(500);
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     client.set_expires("foo", "bar".into(), ttl).await.unwrap();
     ///
@@ -327,7 +327,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
+    ///     let mut client = Client::connect("127.0.0.1:6379").await.unwrap();
     ///
     ///     let val = client.publish("foo", "bar".into()).await.unwrap();
     ///     println!("Got = {:?}", val);
