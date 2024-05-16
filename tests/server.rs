@@ -399,7 +399,7 @@ async fn send_error_get_set_after_subscribe() {
 }
 
 async fn start_server() -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = TcpListener::bind("localhost:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 
     tokio::spawn(async move {

@@ -17,17 +17,24 @@ pub async fn main() -> redis::Result<()> {
     let cli = Cli::parse();
 
     let listener =
-        TcpListener::bind(&format!("127.0.0.1:{}", cli.port.unwrap_or(DEFAULT_PORT))).await?;
+        TcpListener::bind(&format!("localhost:{}", cli.port.unwrap_or(DEFAULT_PORT))).await?;
 
     let (config, master) = match cli.replicaof {
-        Some(_) => (
-            Config::new(cli.port, true),
-            Some(format!(
-                "{}:{}",
-                cli.replicaof.clone().unwrap()[0],
-                cli.replicaof.clone().unwrap()[1]
-            )),
-        ),
+        Some(replicaof) => {
+            let parts: Vec<_> = replicaof.split_whitespace().collect();
+            if parts.len() == 2 {
+                let master_host = parts[0];
+                let master_port = parts[1].parse::<u16>().unwrap_or_else(|_| {
+                    std::process::exit(1);
+                });
+                (
+                    Config::new(cli.port, true),
+                    Some(format!("{}:{}", master_host, master_port)),
+                )
+            } else {
+                std::process::exit(1);
+            }
+        }
         None => (Config::new(cli.port, false), None),
     };
 
@@ -39,8 +46,8 @@ pub async fn main() -> redis::Result<()> {
 #[derive(Parser, Debug)]
 #[clap(name = "redis-server", version, author, about = "A Redis server")]
 struct Cli {
-    #[clap(long, value_names = ["PORT"])]
+    #[clap(long, value_name = "PORT")]
     port: Option<u16>,
-    #[arg(long, num_args = 2, value_names = ["MASTER_HOST", "MASTER_PORT"])]
-    replicaof: Option<Vec<String>>,
+    #[arg(long, value_name = "REPLICAOF")]
+    replicaof: Option<String>,
 }

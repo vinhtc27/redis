@@ -8,7 +8,7 @@ run:
 	cargo run
 
 repl:
-	cargo run -- --port 6380 --replicaof 127.0.0.1 6379
+	cargo run -- --port 6380 --replicaof "localhost 6379"
 
 watch:
 	cargo watch -x run
