@@ -1,4 +1,7 @@
-use crate::{Connection, Frame};
+use crate::{
+    config::{Config, ReplicationRole},
+    Connection, Frame,
+};
 
 use tracing::{debug, instrument};
 
@@ -26,11 +29,14 @@ impl Unknown {
     ///
     /// This usually means the command is not yet implemented by `redis`.
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
         let response = Frame::Error(format!("ERR unknown command '{}'", self.command_name));
 
         debug!(?response);
-        dst.write_frame(&response).await?;
+        match config.role() {
+            ReplicationRole::Master => dst.write_frame(&response).await?,
+            ReplicationRole::Slave => {}
+        }
 
         Ok(())
     }

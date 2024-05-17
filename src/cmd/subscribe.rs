@@ -1,4 +1,5 @@
 use crate::cmd::{Parse, ParseError, Unknown};
+use crate::config::{Config, ReplicationRole};
 use crate::{Command, Connection, Db, Frame, Shutdown};
 
 use bytes::Bytes;
@@ -100,6 +101,7 @@ impl Subscribe {
     /// [here]: https://redis.io/topics/pubsub
     pub(crate) async fn apply(
         mut self,
+        config: &Config,
         db: &Db,
         dst: &mut Connection,
         shutdown: &mut Shutdown,
@@ -131,11 +133,14 @@ impl Subscribe {
             select! {
                 // Receive messages from subscribed channels
                 Some((channel_name, msg)) = subscriptions.next() => {
-                    dst.write_frame(&make_message_frame(channel_name, msg)).await?;
+                    match config.role() {
+                        ReplicationRole::Master => dst.write_frame(&make_message_frame(channel_name, msg)).await?,
+                        ReplicationRole::Slave => {}
+                    }
                 }
                 res = dst.read_frame() => {
                     let frame = match res? {
-                        Some(frame) => frame,
+                        Some((frame,_)) => frame,
                         // This happens if the remote client has disconnected.
                         None => return Ok(())
                     };
@@ -144,6 +149,7 @@ impl Subscribe {
                         frame,
                         &mut self.channels,
                         &mut subscriptions,
+                        config,
                         dst,
                     ).await?;
                 }
@@ -209,6 +215,7 @@ async fn handle_command(
     frame: Frame,
     subscribe_to: &mut Vec<String>,
     subscriptions: &mut StreamMap<String, Messages>,
+    config: &Config,
     dst: &mut Connection,
 ) -> crate::Result<()> {
     // A command has been received from the client.
@@ -242,7 +249,7 @@ async fn handle_command(
         }
         command => {
             let cmd = Unknown::new(command.get_name());
-            cmd.apply(dst).await?;
+            cmd.apply(config, dst).await?;
         }
     }
     Ok(())

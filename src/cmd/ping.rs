@@ -1,4 +1,7 @@
-use crate::{Connection, Frame, Parse, ParseError};
+use crate::{
+    config::{Config, ReplicationRole},
+    Connection, Frame, Parse, ParseError,
+};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -52,14 +55,17 @@ impl Ping {
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
         let response = match self.msg {
             None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg),
         };
 
         debug!(?response);
-        dst.write_frame(&response).await?;
+        match config.role() {
+            ReplicationRole::Master => dst.write_frame(&response).await?,
+            ReplicationRole::Slave => {}
+        }
 
         Ok(())
     }

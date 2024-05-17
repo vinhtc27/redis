@@ -39,11 +39,7 @@ impl PSync {
         config: &mut Config,
         dst: &mut Connection,
     ) -> crate::Result<()> {
-        if self.replicationid == "?" && self.offset == -1 {
-            config.set_second_repl_offset(0);
-        };
         let (replicationid, offset) = config.master_replid_and_offset();
-
         let fullresync_response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
 
         debug!(?fullresync_response);

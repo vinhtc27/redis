@@ -2,6 +2,7 @@ use bytes::Bytes;
 use tracing::{debug, instrument};
 
 use crate::{
+    config::{Config, ReplicationRole},
     parse::{Parse, ParseError},
     Connection, Frame,
 };
@@ -54,11 +55,14 @@ impl Echo {
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
         let response = Frame::Bulk(self.msg);
 
         debug!(?response);
-        dst.write_frame(&response).await?;
+        match config.role() {
+            ReplicationRole::Master => dst.write_frame(&response).await?,
+            ReplicationRole::Slave => {}
+        }
 
         Ok(())
     }

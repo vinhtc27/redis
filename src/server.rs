@@ -181,20 +181,20 @@ pub async fn run(
             connection
                 .write_frame(&PSync::new("?", -1).into_frame())
                 .await?;
-            let psync = connection.read_frame().await?;
+            let psync_response = connection.read_frame().await?;
             let _rdb_file_response = connection.read_frame().await?;
 
-            let result = match psync {
-                Some(Frame::Simple(value)) => Ok(value.into()),
-                Some(Frame::Bulk(value)) => Ok(value),
-                Some(frame) => Err(frame.to_error()),
+            let result = match psync_response {
+                Some((Frame::Simple(value), _)) => Ok(value.into()),
+                Some((Frame::Bulk(value), _)) => Ok(value),
+                Some((frame, _)) => Err(frame.to_error()),
                 None => Err("no response".into()),
             }?;
 
             let mut psync_str = from_utf8(&result)?.split_whitespace();
             let _ = psync_str.next();
             config.set_master_replid(psync_str.next().unwrap().to_owned());
-            config.set_master_repl_offset(psync_str.next().unwrap().parse::<i64>()?);
+            config.set_master_repl_offset(psync_str.next().unwrap().parse::<usize>()?);
 
             let db = db_holder.db();
             let mut config = config.clone();
@@ -203,14 +203,14 @@ pub async fn run(
             tokio::spawn(async move {
                 while !shutdown.is_shutdown() {
                     let maybe_frame_and_size = tokio::select! {
-                        res = connection.read_frame_and_size() => res.unwrap(),
+                        res = connection.read_frame() => res.unwrap(),
                         _ = shutdown.recv() => {
                             return;
                         }
                     };
 
                     let (frame, size) = match maybe_frame_and_size {
-                        Some(frame) => frame,
+                        Some(ok_frame_and_size) => ok_frame_and_size,
                         None => return,
                     };
 
@@ -221,7 +221,7 @@ pub async fn run(
                         .await
                         .unwrap();
 
-                    config.set_second_repl_offset(size as i64);
+                    config.increase_second_repl_offset(size);
                 }
                 drop(permit);
             });
@@ -442,7 +442,7 @@ impl Handler {
             // the socket. There is no further work to do and the task can be
             // terminated.
             let frame = match maybe_frame {
-                Some(frame) => frame,
+                Some((frame, _)) => frame,
                 None => return Ok(()),
             };
 

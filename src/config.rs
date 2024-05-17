@@ -30,7 +30,7 @@ impl Config {
                     util::random_string(40)
                 },
                 master_repl_offset: 0,
-                second_repl_offset: -1,
+                second_repl_offset: 0,
                 repl_backlog_active: 0,
                 repl_backlog_size: 1048576,
                 repl_backlog_first_byte_offset: 0,
@@ -55,7 +55,7 @@ impl Config {
         self.replication_config.to_string()
     }
 
-    pub fn master_replid_and_offset(&self) -> (String, i64) {
+    pub fn master_replid_and_offset(&self) -> (String, usize) {
         (
             self.replication_config.master_replid.clone(),
             self.replication_config.master_repl_offset,
@@ -70,15 +70,11 @@ impl Config {
         self.replication_config.master_replid = master_replid;
     }
 
-    pub fn set_master_repl_offset(&mut self, master_repl_offset: i64) {
+    pub fn set_master_repl_offset(&mut self, master_repl_offset: usize) {
         self.replication_config.master_repl_offset = master_repl_offset;
     }
 
-    pub fn set_second_repl_offset(&mut self, master_repl_offset: i64) {
-        self.replication_config.master_repl_offset = master_repl_offset;
-    }
-
-    pub fn increase_second_repl_offset(&mut self, offset: i64) {
+    pub fn increase_second_repl_offset(&mut self, offset: usize) {
         self.replication_config.second_repl_offset += offset;
     }
 }
@@ -102,14 +98,14 @@ impl Display for ServerConfig {
 #[derive(Debug, Clone)]
 pub struct ReplicationConfig {
     role: ReplicationRole,
-    connected_slaves: i64,
+    connected_slaves: usize,
     master_replid: String,
-    master_repl_offset: i64,
-    second_repl_offset: i64,
-    repl_backlog_active: i64,
-    repl_backlog_size: i64,
-    repl_backlog_first_byte_offset: i64,
-    repl_backlog_histlen: i64,
+    master_repl_offset: usize,
+    second_repl_offset: usize,
+    repl_backlog_active: usize,
+    repl_backlog_size: usize,
+    repl_backlog_first_byte_offset: usize,
+    repl_backlog_histlen: usize,
 }
 
 impl Display for ReplicationConfig {

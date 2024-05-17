@@ -53,34 +53,7 @@ impl Connection {
     /// On success, the received frame is returned. If the `TcpStream`
     /// is closed in a way that doesn't break a frame in half, it returns
     /// `None`. Otherwise, an error is returned.
-    pub async fn read_frame(&mut self) -> crate::Result<Option<Frame>> {
-        loop {
-            // Attempt to parse a frame from the buffered data. If enough data
-            // has been buffered, the frame is returned.
-            if let Some((frame, _)) = self.parse_frame()? {
-                return Ok(Some(frame));
-            }
-
-            // There is not enough buffered data to read a frame. Attempt to
-            // read more data from the socket.
-            //
-            // On success, the number of bytes is returned. `0` indicates "end
-            // of stream".
-            if 0 == self.stream.read_buf(&mut self.buffer).await? {
-                // The remote closed the connection. For this to be a clean
-                // shutdown, there should be no data in the read buffer. If
-                // there is, this means that the peer closed the socket while
-                // sending a frame.
-                if self.buffer.is_empty() {
-                    return Ok(None);
-                } else {
-                    return Err("connection reset by peer".into());
-                }
-            }
-        }
-    }
-
-    pub async fn read_frame_and_size(&mut self) -> crate::Result<Option<(Frame, usize)>> {
+    pub async fn read_frame(&mut self) -> crate::Result<Option<(Frame, usize)>> {
         loop {
             // Attempt to parse a frame from the buffered data. If enough data
             // has been buffered, the frame is returned.
@@ -119,6 +92,7 @@ impl Connection {
         // which provides a number of helpful utilities for working
         // with bytes.
         let mut buf = Cursor::new(&self.buffer[..]);
+        let size = self.buffer.len();
 
         // The first step is to check if enough data has been buffered to parse
         // a single frame. This step is usually much faster than doing a full
@@ -155,7 +129,7 @@ impl Connection {
                 self.buffer.advance(len);
 
                 // Return the parsed frame to the caller.
-                Ok(Some((frame, len)))
+                Ok(Some((frame, size)))
             }
             // There is not enough data present in the read buffer to parse a
             // single frame. We must wait for more data to be received from the
