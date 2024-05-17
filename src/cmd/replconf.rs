@@ -47,10 +47,10 @@ impl ReplConf {
         if self.pairs.is_some() {
             let pairs = self.pairs.unwrap();
             if pairs.len() == 1 {
-                if pairs[0].0.to_ascii_lowercase() == "getack" && from_utf8(&pairs[0].1)? == "*" {
+                if pairs[0].0.to_ascii_uppercase() == "GETACK" && from_utf8(&pairs[0].1)? == "*" {
                     response = Frame::Array(vec![
-                        Frame::Bulk(Bytes::from("replconf".as_bytes())),
-                        Frame::Bulk(Bytes::from("ack".as_bytes())),
+                        Frame::Bulk(Bytes::from("REPLCONF".as_bytes())),
+                        Frame::Bulk(Bytes::from("ACK".as_bytes())),
                         Frame::Bulk(Bytes::from("0".as_bytes())),
                     ]);
                 }

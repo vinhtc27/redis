@@ -4,6 +4,9 @@ info:
 unuse:
 	cargo +nightly udeps --all-targets
 
+test:
+	cargo test
+
 run:
 	cargo run
 

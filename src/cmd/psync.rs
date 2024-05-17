@@ -44,7 +44,7 @@ impl PSync {
         };
         let (replicationid, offset) = config.master_replid_and_offset();
 
-        let fullresync_response = Frame::Simple(format!("fullresync {} {}", replicationid, offset));
+        let fullresync_response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
 
         debug!(?fullresync_response);
         dst.write_frame(&fullresync_response).await?;
