@@ -54,13 +54,11 @@ impl Ping {
     #[instrument(skip(self, dst))]
     pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
         let response = match self.msg {
-            None => Frame::Simple("PONG".to_string()),
+            None => Frame::Simple("pong".to_string()),
             Some(msg) => Frame::Bulk(msg),
         };
 
         debug!(?response);
-
-        // Write the response back to the client
         dst.write_frame(&response).await?;
 
         Ok(())

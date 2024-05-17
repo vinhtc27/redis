@@ -84,15 +84,26 @@ impl Frame {
                     // Skip '-1\r\n'
                     skip(src, 4)
                 } else {
-                    // Read the bulk string or file
+                    // Read the bulk or file
                     let len: usize = get_decimal(src)?.try_into()?;
 
-                    if src.remaining() == len {
-                        skip(src, len)
+                    // Skip the data length
+                    skip(src, len)?;
+
+                    // Check if bulf or file
+                    let pos = src.position() as usize;
+                    let crlf = if src.has_remaining() {
+                        &src.get_ref()[pos..pos + 2] == b"\r\n"
                     } else {
-                        // skip that number of bytes + 2 (\r\n).
-                        skip(src, len + 2)
+                        false
+                    };
+
+                    // Skip the trailing crlf
+                    if crlf {
+                        skip(src, 2)?;
                     }
+
+                    Ok(())
                 }
             }
             b'*' => {
@@ -136,31 +147,36 @@ impl Frame {
             b'$' => {
                 if b'-' == peek_u8(src)? {
                     let line = get_line(src)?;
-
                     if line != b"-1" {
                         return Err("protocol error; invalid frame format".into());
                     }
-
                     Ok(Frame::Null)
                 } else {
-                    // Read the bulk string or file
+                    // Read the bulk or file
                     let len = get_decimal(src)?.try_into()?;
-                    let n = len + 2;
-
-                    if src.remaining() == len {
-                        let data = Bytes::copy_from_slice(&src.chunk());
-
-                        // file is similar to Bulk, but without the trailing (\r\n)
-                        Ok(Frame::File(data))
-                    } else if src.remaining() < n {
+                    if src.remaining() < len {
                         Err(Error::Incomplete)
                     } else {
                         let data = Bytes::copy_from_slice(&src.chunk()[..len]);
 
-                        // skip that number of bytes + 2 (\r\n).
-                        skip(src, n)?;
+                        // Skip the data length
+                        skip(src, len)?;
 
-                        Ok(Frame::Bulk(data))
+                        // Check if bulf or file
+                        let pos = src.position() as usize;
+                        let crlf = if src.has_remaining() {
+                            &src.get_ref()[pos..pos + 2] == b"\r\n"
+                        } else {
+                            false
+                        };
+
+                        // Skip the trailing crlf
+                        if crlf {
+                            skip(src, 2)?;
+                            Ok(Frame::Bulk(data))
+                        } else {
+                            Ok(Frame::File(data))
+                        }
                     }
                 }
             }

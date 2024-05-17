@@ -1,4 +1,5 @@
 use crate::cmd::{Parse, ParseError};
+use crate::config::{Config, ReplicationRole};
 use crate::{Connection, Db, Frame};
 
 use bytes::Bytes;
@@ -125,14 +126,23 @@ impl Set {
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
     #[instrument(skip(self, db, dst))]
-    pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(
+        self,
+        config: &Config,
+        db: &Db,
+        dst: &mut Connection,
+    ) -> crate::Result<()> {
         // Set the value in the shared database state.
         db.set(self.key, self.value, self.expire);
 
         // Create a success response and write it to `dst`.
         let response = Frame::Simple("OK".to_string());
+
         debug!(?response);
-        dst.write_frame(&response).await?;
+        match config.role() {
+            ReplicationRole::Master => dst.write_frame(&response).await?,
+            ReplicationRole::Slave => {}
+        }
 
         Ok(())
     }

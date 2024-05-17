@@ -58,7 +58,6 @@ impl Echo {
         let response = Frame::Bulk(self.msg);
 
         debug!(?response);
-
         dst.write_frame(&response).await?;
 
         Ok(())

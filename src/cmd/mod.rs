@@ -123,8 +123,8 @@ impl Command {
             ReplConf(cmd) => cmd.apply(dst).await,
             PSync(cmd) => cmd.apply(config, dst).await,
             Get(cmd) => cmd.apply(db, dst).await,
-            Set(cmd) => cmd.apply(db, dst).await,
-            Publish(cmd) => cmd.apply(db, dst).await,
+            Set(cmd) => cmd.apply(config, db, dst).await,
+            Publish(cmd) => cmd.apply(config, db, dst).await,
             Subscribe(cmd) => cmd.apply(db, dst, shutdown).await,
             // `Unsubscribe` cannot be applied. It may only be received from the
             // context of a `Subscribe` command.

@@ -1,3 +1,5 @@
+use std::str::from_utf8;
+
 use crate::{parse::ParseError, Connection, Frame, Parse};
 use bytes::Bytes;
 use tracing::{debug, instrument};
@@ -40,9 +42,29 @@ impl ReplConf {
 
     #[instrument(skip(self, dst))]
     pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
-        let response = Frame::Simple("OK".to_string());
-        debug!(?response);
+        let mut response = Frame::Null;
 
+        if self.pairs.is_some() {
+            let pairs = self.pairs.unwrap();
+            if pairs.len() == 1 {
+                if pairs[0].0.to_ascii_lowercase() == "getack" && from_utf8(&pairs[0].1)? == "*" {
+                    response = Frame::Array(vec![
+                        Frame::Bulk(Bytes::from("replconf".as_bytes())),
+                        Frame::Bulk(Bytes::from("getack".as_bytes())),
+                        Frame::Bulk(Bytes::from("0".as_bytes())),
+                    ]);
+                }
+            }
+        }
+
+        match response {
+            Frame::Null => {
+                response = Frame::Simple("OK".to_string());
+            }
+            _ => {}
+        }
+
+        debug!(?response);
         dst.write_frame(&response).await?;
 
         Ok(())

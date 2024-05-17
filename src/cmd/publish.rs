@@ -1,6 +1,10 @@
-use crate::{Connection, Db, Frame, Parse};
+use crate::{
+    config::{Config, ReplicationRole},
+    Connection, Db, Frame, Parse,
+};
 
 use bytes::Bytes;
+use tracing::debug;
 
 /// Posts a message to the given channel.
 ///
@@ -64,7 +68,12 @@ impl Publish {
     ///
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
-    pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(
+        self,
+        config: &Config,
+        db: &Db,
+        dst: &mut Connection,
+    ) -> crate::Result<()> {
         // The shared state contains the `tokio::sync::broadcast::Sender` for
         // all active channels. Calling `db.publish` dispatches the message into
         // the appropriate channel.
@@ -80,8 +89,11 @@ impl Publish {
         // request.
         let response = Frame::UnsignedInteger(num_subscribers as u64);
 
-        // Write the frame to the client.
-        dst.write_frame(&response).await?;
+        debug!(?response);
+        match config.role() {
+            ReplicationRole::Master => dst.write_frame(&response).await?,
+            ReplicationRole::Slave => {}
+        }
 
         Ok(())
     }

@@ -44,11 +44,13 @@ impl PSync {
         };
         let (replicationid, offset) = config.master_replid_and_offset();
 
-        let fullresync_response = Frame::Simple(format!("FULLRESYNC {} {}", replicationid, offset));
+        let fullresync_response = Frame::Simple(format!("fullresync {} {}", replicationid, offset));
+
         debug!(?fullresync_response);
         dst.write_frame(&fullresync_response).await?;
 
         let rdb_response = Frame::File(EMPTY_RDB_FILE.as_slice().into());
+
         debug!(?rdb_response);
         dst.write_frame(&rdb_response).await?;
 

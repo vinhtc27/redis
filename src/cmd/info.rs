@@ -46,7 +46,6 @@ impl Info {
         };
 
         debug!(?response);
-
         dst.write_frame(&response).await?;
 
         Ok(())

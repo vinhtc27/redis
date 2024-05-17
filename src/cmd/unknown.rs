@@ -30,8 +30,8 @@ impl Unknown {
         let response = Frame::Error(format!("ERR unknown command '{}'", self.command_name));
 
         debug!(?response);
-
         dst.write_frame(&response).await?;
+
         Ok(())
     }
 }

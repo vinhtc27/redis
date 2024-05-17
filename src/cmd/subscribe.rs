@@ -6,6 +6,7 @@ use std::pin::Pin;
 use tokio::select;
 use tokio::sync::broadcast;
 use tokio_stream::{Stream, StreamExt, StreamMap};
+use tracing::debug;
 
 /// Subscribes the client to one or more channels.
 ///
@@ -192,6 +193,8 @@ async fn subscribe_to_channel(
 
     // Respond with the successful subscription
     let response = make_subscribe_frame(channel_name, subscriptions.len());
+
+    debug!(?response);
     dst.write_frame(&response).await?;
 
     Ok(())
