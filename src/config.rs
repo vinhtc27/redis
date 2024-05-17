@@ -62,8 +62,8 @@ impl Config {
         )
     }
 
-    pub fn second_repl_offset(&self) -> i64 {
-        self.replication_config.master_repl_offset
+    pub fn second_repl_offset(&self) -> String {
+        self.replication_config.master_repl_offset.to_string()
     }
 
     pub fn set_master_replid(&mut self, master_replid: String) {

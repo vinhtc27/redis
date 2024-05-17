@@ -51,9 +51,7 @@ impl ReplConf {
                     response = Frame::Array(vec![
                         Frame::Bulk(Bytes::from("REPLCONF".as_bytes())),
                         Frame::Bulk(Bytes::from("ACK".as_bytes())),
-                        Frame::Bulk(Bytes::from(
-                            config.second_repl_offset().to_be_bytes().to_vec(),
-                        )),
+                        Frame::Bulk(Bytes::from(config.second_repl_offset())),
                     ]);
                 }
             }
