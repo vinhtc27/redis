@@ -55,20 +55,31 @@ impl Config {
         self.replication_config.to_string()
     }
 
-    pub fn master_replid_and_offset(&self) -> (String, String) {
+    pub fn master_replid_and_offset(&self) -> (String, i64) {
         (
             self.replication_config.master_replid.clone(),
-            self.replication_config.master_repl_offset.to_string(),
+            self.replication_config.master_repl_offset,
         )
     }
 
-    pub fn set_master_replid_and_offset(&mut self, master_replid: String, master_repl_offset: i64) {
+    pub fn second_repl_offset(&self) -> i64 {
+        self.replication_config.master_repl_offset
+    }
+
+    pub fn set_master_replid(&mut self, master_replid: String) {
         self.replication_config.master_replid = master_replid;
+    }
+
+    pub fn set_master_repl_offset(&mut self, master_repl_offset: i64) {
         self.replication_config.master_repl_offset = master_repl_offset;
     }
 
-    pub fn set_second_repl_offset(&mut self, second_repl_offset: i64) {
-        self.replication_config.second_repl_offset = second_repl_offset;
+    pub fn set_second_repl_offset(&mut self, master_repl_offset: i64) {
+        self.replication_config.master_repl_offset = master_repl_offset;
+    }
+
+    pub fn increase_second_repl_offset(&mut self, offset: i64) {
+        self.replication_config.second_repl_offset += offset;
     }
 }
 

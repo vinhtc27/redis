@@ -193,12 +193,8 @@ pub async fn run(
 
             let mut psync_str = from_utf8(&result)?.split_whitespace();
             let _ = psync_str.next();
-            let master_replid = psync_str.next().unwrap();
-            let master_offset = psync_str.next().unwrap();
-            config.set_master_replid_and_offset(
-                master_replid.to_owned(),
-                master_offset.parse::<i64>()?,
-            );
+            config.set_master_replid(psync_str.next().unwrap().to_owned());
+            config.set_master_repl_offset(psync_str.next().unwrap().parse::<i64>()?);
 
             let db = db_holder.db();
             let mut config = config.clone();
@@ -206,14 +202,14 @@ pub async fn run(
             let permit = limit_connections.clone().acquire_owned().await.unwrap();
             tokio::spawn(async move {
                 while !shutdown.is_shutdown() {
-                    let maybe_frame = tokio::select! {
-                        res = connection.read_frame() => res.unwrap(),
+                    let maybe_frame_and_size = tokio::select! {
+                        res = connection.read_frame_and_size() => res.unwrap(),
                         _ = shutdown.recv() => {
                             return;
                         }
                     };
 
-                    let frame = match maybe_frame {
+                    let (frame, size) = match maybe_frame_and_size {
                         Some(frame) => frame,
                         None => return,
                     };
@@ -224,6 +220,8 @@ pub async fn run(
                     cmd.apply(&db, &mut config, &mut connection, &mut shutdown)
                         .await
                         .unwrap();
+
+                    config.set_second_repl_offset(size as i64);
                 }
                 drop(permit);
             });

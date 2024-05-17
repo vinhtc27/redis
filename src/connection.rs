@@ -57,8 +57,35 @@ impl Connection {
         loop {
             // Attempt to parse a frame from the buffered data. If enough data
             // has been buffered, the frame is returned.
-            if let Some(frame) = self.parse_frame()? {
+            if let Some((frame, _)) = self.parse_frame()? {
                 return Ok(Some(frame));
+            }
+
+            // There is not enough buffered data to read a frame. Attempt to
+            // read more data from the socket.
+            //
+            // On success, the number of bytes is returned. `0` indicates "end
+            // of stream".
+            if 0 == self.stream.read_buf(&mut self.buffer).await? {
+                // The remote closed the connection. For this to be a clean
+                // shutdown, there should be no data in the read buffer. If
+                // there is, this means that the peer closed the socket while
+                // sending a frame.
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Err("connection reset by peer".into());
+                }
+            }
+        }
+    }
+
+    pub async fn read_frame_and_size(&mut self) -> crate::Result<Option<(Frame, usize)>> {
+        loop {
+            // Attempt to parse a frame from the buffered data. If enough data
+            // has been buffered, the frame is returned.
+            if let Some(frame_and_size) = self.parse_frame()? {
+                return Ok(Some(frame_and_size));
             }
 
             // There is not enough buffered data to read a frame. Attempt to
@@ -84,7 +111,7 @@ impl Connection {
     /// data, the frame is returned and the data removed from the buffer. If not
     /// enough data has been buffered yet, `Ok(None)` is returned. If the
     /// buffered data does not represent a valid frame, `Err` is returned.
-    fn parse_frame(&mut self) -> crate::Result<Option<Frame>> {
+    fn parse_frame(&mut self) -> crate::Result<Option<(Frame, usize)>> {
         use frame::Error::Incomplete;
 
         // Cursor is used to track the "current" location in the
@@ -128,7 +155,7 @@ impl Connection {
                 self.buffer.advance(len);
 
                 // Return the parsed frame to the caller.
-                Ok(Some(frame))
+                Ok(Some((frame, len)))
             }
             // There is not enough data present in the read buffer to parse a
             // single frame. We must wait for more data to be received from the

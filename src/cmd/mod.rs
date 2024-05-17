@@ -117,20 +117,22 @@ impl Command {
         use Command::*;
 
         match self {
-            Ping(cmd) => cmd.apply(dst).await,
-            Echo(cmd) => cmd.apply(dst).await,
-            Info(cmd) => cmd.apply(config, dst).await,
-            ReplConf(cmd) => cmd.apply(dst).await,
-            PSync(cmd) => cmd.apply(config, dst).await,
-            Get(cmd) => cmd.apply(db, dst).await,
-            Set(cmd) => cmd.apply(config, db, dst).await,
-            Publish(cmd) => cmd.apply(config, db, dst).await,
-            Subscribe(cmd) => cmd.apply(db, dst, shutdown).await,
+            Ping(cmd) => cmd.apply(dst).await?,
+            Echo(cmd) => cmd.apply(dst).await?,
+            Info(cmd) => cmd.apply(config, dst).await?,
+            ReplConf(cmd) => cmd.apply(config, dst).await?,
+            PSync(cmd) => cmd.apply(config, dst).await?,
+            Get(cmd) => cmd.apply(db, dst).await?,
+            Set(cmd) => cmd.apply(config, db, dst).await?,
+            Publish(cmd) => cmd.apply(config, db, dst).await?,
+            Subscribe(cmd) => cmd.apply(db, dst, shutdown).await?,
             // `Unsubscribe` cannot be applied. It may only be received from the
             // context of a `Subscribe` command.
-            Unsubscribe(_) => Err("`Unsubscribe` is unsupported in this context".into()),
-            Unknown(cmd) => cmd.apply(dst).await,
+            Unsubscribe(_) => return Err("`Unsubscribe` is unsupported in this context".into()),
+            Unknown(cmd) => cmd.apply(dst).await?,
         }
+
+        Ok(())
     }
 
     /// Returns the command name

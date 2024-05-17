@@ -1,6 +1,6 @@
 use std::str::from_utf8;
 
-use crate::{parse::ParseError, Connection, Frame, Parse};
+use crate::{config::Config, parse::ParseError, Connection, Frame, Parse};
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -41,7 +41,7 @@ impl ReplConf {
     }
 
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
         let mut response = Frame::Null;
 
         if self.pairs.is_some() {
@@ -51,7 +51,9 @@ impl ReplConf {
                     response = Frame::Array(vec![
                         Frame::Bulk(Bytes::from("REPLCONF".as_bytes())),
                         Frame::Bulk(Bytes::from("ACK".as_bytes())),
-                        Frame::Bulk(Bytes::from("0".as_bytes())),
+                        Frame::Bulk(Bytes::from(
+                            config.second_repl_offset().to_be_bytes().to_vec(),
+                        )),
                     ]);
                 }
             }
