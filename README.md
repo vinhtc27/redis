@@ -1,4 +1,4 @@
-# Combine Codecrafter Redis challenges with Mini Redis repo of Tokio
+# Combine Codecrafters Redis challenges with Mini Redis repo of Tokio
 
 `redis` is an incomplete, idiomatic implementation of a
 [Redis](https://redis.io) client and server built with

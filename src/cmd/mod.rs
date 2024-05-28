@@ -1,4 +1,6 @@
 mod ping;
+use std::sync::atomic::AtomicUsize;
+
 pub use ping::Ping;
 
 mod echo;
@@ -113,6 +115,7 @@ impl Command {
         config: &mut Config,
         dst: &mut Connection,
         shutdown: &mut Shutdown,
+        offset: Option<&AtomicUsize>,
     ) -> crate::Result<()> {
         use Command::*;
 
@@ -120,7 +123,7 @@ impl Command {
             Ping(cmd) => cmd.apply(config, dst).await?,
             Echo(cmd) => cmd.apply(config, dst).await?,
             Info(cmd) => cmd.apply(config, dst).await?,
-            ReplConf(cmd) => cmd.apply(config, dst).await?,
+            ReplConf(cmd) => cmd.apply(config, db, dst, offset).await?,
             PSync(cmd) => cmd.apply(config, dst).await?,
             Get(cmd) => cmd.apply(config, db, dst).await?,
             Set(cmd) => cmd.apply(config, db, dst).await?,

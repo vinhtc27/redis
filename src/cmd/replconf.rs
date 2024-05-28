@@ -1,7 +1,15 @@
-use std::str::from_utf8;
+use crate::{
+    config::{Config, ReplicationRole},
+    db::Db,
+    parse::ParseError,
+    Connection, Frame, Parse,
+};
 
-use crate::{config::Config, parse::ParseError, Connection, Frame, Parse};
 use bytes::Bytes;
+use std::{
+    str::from_utf8,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use tracing::{debug, instrument};
 
 #[derive(Debug, Default)]
@@ -41,27 +49,42 @@ impl ReplConf {
     }
 
     #[instrument(skip(self, dst))]
-    pub(crate) async fn apply(self, config: &Config, dst: &mut Connection) -> crate::Result<()> {
+    pub(crate) async fn apply(
+        self,
+        config: &Config,
+        db: &Db,
+        dst: &mut Connection,
+        offset: Option<&AtomicUsize>,
+    ) -> crate::Result<()> {
         let mut response = Frame::Null;
 
+        let offset_bytes = if offset.is_some() {
+            offset.unwrap().load(Ordering::SeqCst).to_string()
+        } else {
+            "0".to_owned()
+        };
+
         if self.pairs.is_some() {
-            let pairs = self.pairs.unwrap();
-            if pairs.len() == 1 {
-                if pairs[0].0.to_ascii_uppercase() == "GETACK" && from_utf8(&pairs[0].1)? == "*" {
-                    response = Frame::Array(vec![
-                        Frame::Bulk(Bytes::from("REPLCONF".as_bytes())),
-                        Frame::Bulk(Bytes::from("ACK".as_bytes())),
-                        Frame::Bulk(Bytes::from(config.second_repl_offset())),
-                    ]);
+            match config.role() {
+                ReplicationRole::Slave => {
+                    let pairs = self.pairs.unwrap();
+                    if pairs.len() == 1
+                        && pairs[0].0.to_ascii_uppercase() == "GETACK"
+                        && from_utf8(&pairs[0].1)? == "*"
+                    {
+                        response = Frame::Array(vec![
+                            Frame::Bulk(Bytes::from("REPLCONF".as_bytes())),
+                            Frame::Bulk(Bytes::from("ACK".as_bytes())),
+                            Frame::Bulk(Bytes::from(offset_bytes)),
+                        ]);
+                    }
                 }
+                ReplicationRole::Master => {}
             }
         }
 
-        match response {
-            Frame::Null => {
-                response = Frame::Simple("OK".to_string());
-            }
-            _ => {}
+        if let Frame::Null = response {
+            response = Frame::Simple("OK".to_string());
         }
 
         debug!(?response);

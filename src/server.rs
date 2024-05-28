@@ -5,10 +5,10 @@
 
 use crate::cmd::{PSync, Ping, ReplConf};
 use crate::config::{Config, ReplicationRole};
-use crate::{Command, Connection, Db, DbDropGuard, Frame, Shutdown};
+use crate::{Command, Connection, Db, DbDropGuard, Shutdown};
 
 use std::future::Future;
-use std::str::from_utf8;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, RwLock, Semaphore};
@@ -137,7 +137,7 @@ const MAX_CONNECTIONS: usize = 250;
 /// listen for a SIGINT signal.
 pub async fn run(
     listener: TcpListener,
-    mut config: Config,
+    config: Config,
     master: Option<String>,
     shutdown: impl Future,
 ) -> crate::Result<()> {
@@ -153,80 +153,73 @@ pub async fn run(
     let db_holder = DbDropGuard::new();
     let limit_connections = Arc::new(Semaphore::new(MAX_CONNECTIONS));
 
-    match master {
-        Some(address) => {
-            let port = config.server_tcp_port().to_string();
+    if let Some(address) = master {
+        let port = config.server_tcp_port().to_string();
 
-            let socket = TcpStream::connect(address).await?;
-            let mut connection = Connection::new(socket);
+        let socket = TcpStream::connect(address).await?;
+        let mut connection = Connection::new(socket);
 
-            connection
-                .write_frame(&Ping::new(None).into_frame())
-                .await?;
-            let _ping = connection.read_frame().await?;
+        connection
+            .write_frame(&Ping::new(None).into_frame())
+            .await?;
+        let _ping = connection.read_frame().await?;
 
-            connection
-                .write_frame(&ReplConf::new(vec![("listening-port", port.into())]).into_frame())
-                .await?;
-            let _replconf1 = connection.read_frame().await?;
+        connection
+            .write_frame(&ReplConf::new(vec![("listening-port", port.into())]).into_frame())
+            .await?;
+        let _replconf1 = connection.read_frame().await?;
 
-            connection
-                .write_frame(
-                    &ReplConf::new(vec![("capa", "eof".into()), ("capa", "psync2".into())])
-                        .into_frame(),
+        connection
+            .write_frame(
+                &ReplConf::new(vec![("capa", "eof".into()), ("capa", "psync2".into())])
+                    .into_frame(),
+            )
+            .await?;
+        let _replconf2 = connection.read_frame().await?;
+
+        connection
+            .write_frame(&PSync::new("?", -1).into_frame())
+            .await?;
+        let _psync_response = connection.read_frame().await?;
+        let _rdb_file_response = connection.read_frame().await?;
+
+        let offset = AtomicUsize::new(0);
+        let db = db_holder.db();
+        let mut config = config.clone();
+        let mut shutdown = Shutdown::new(notify_shutdown.subscribe());
+        let permit = limit_connections.clone().acquire_owned().await.unwrap();
+
+        tokio::spawn(async move {
+            while !shutdown.is_shutdown() {
+                let maybe_frame_and_size = tokio::select! {
+                    res = connection.read_frame() => res.unwrap(),
+                    _ = shutdown.recv() => {
+                        return;
+                    }
+                };
+
+                let (frame, size) = match maybe_frame_and_size {
+                    Some(ok_frame_and_size) => ok_frame_and_size,
+                    None => return,
+                };
+
+                let cmd = Command::from_frame(frame.clone()).unwrap();
+                debug!(?cmd);
+
+                cmd.apply(
+                    &db,
+                    &mut config,
+                    &mut connection,
+                    &mut shutdown,
+                    Some(&offset),
                 )
-                .await?;
-            let _replconf2 = connection.read_frame().await?;
+                .await
+                .unwrap();
 
-            connection
-                .write_frame(&PSync::new("?", -1).into_frame())
-                .await?;
-            let psync_response = connection.read_frame().await?;
-            let _rdb_file_response = connection.read_frame().await?;
-
-            let result = match psync_response {
-                Some((Frame::Simple(value), _)) => Ok(value.into()),
-                Some((Frame::Bulk(value), _)) => Ok(value),
-                Some((frame, _)) => Err(frame.to_error()),
-                None => Err("no response".into()),
-            }?;
-
-            let mut psync_str = from_utf8(&result)?.split_whitespace();
-            let _ = psync_str.next();
-            config.set_master_replid(psync_str.next().unwrap().to_owned());
-            config.set_master_repl_offset(psync_str.next().unwrap().parse::<usize>()?);
-
-            let db = db_holder.db();
-            let mut config = config.clone();
-            let mut shutdown = Shutdown::new(notify_shutdown.subscribe());
-            let permit = limit_connections.clone().acquire_owned().await.unwrap();
-            tokio::spawn(async move {
-                while !shutdown.is_shutdown() {
-                    let maybe_frame_and_size = tokio::select! {
-                        res = connection.read_frame() => res.unwrap(),
-                        _ = shutdown.recv() => {
-                            return;
-                        }
-                    };
-
-                    let (frame, size) = match maybe_frame_and_size {
-                        Some(ok_frame_and_size) => ok_frame_and_size,
-                        None => return,
-                    };
-
-                    let cmd = Command::from_frame(frame.clone()).unwrap();
-                    debug!(?cmd);
-
-                    cmd.apply(&db, &mut config, &mut connection, &mut shutdown)
-                        .await
-                        .unwrap();
-
-                    config.increase_second_repl_offset(size);
-                }
-                drop(permit);
-            });
-        }
-        None => {}
+                offset.fetch_add(size, Ordering::SeqCst);
+            }
+            drop(permit);
+        });
     };
 
     // Initialize the listener state
@@ -476,6 +469,7 @@ impl Handler {
                             &mut self.config,
                             &mut self.connection,
                             &mut self.shutdown,
+                            None,
                         )
                         .await?;
                         self.connected_slaves.write().await.push(self.connection);
@@ -498,6 +492,7 @@ impl Handler {
                 &mut self.config,
                 &mut self.connection,
                 &mut self.shutdown,
+                None,
             )
             .await?;
         }

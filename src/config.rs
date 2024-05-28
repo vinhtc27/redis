@@ -61,22 +61,6 @@ impl Config {
             self.replication_config.master_repl_offset,
         )
     }
-
-    pub fn second_repl_offset(&self) -> String {
-        self.replication_config.master_repl_offset.to_string()
-    }
-
-    pub fn set_master_replid(&mut self, master_replid: String) {
-        self.replication_config.master_replid = master_replid;
-    }
-
-    pub fn set_master_repl_offset(&mut self, master_repl_offset: usize) {
-        self.replication_config.master_repl_offset = master_repl_offset;
-    }
-
-    pub fn increase_second_repl_offset(&mut self, offset: usize) {
-        self.replication_config.second_repl_offset += offset;
-    }
 }
 
 #[derive(Debug, Clone)]
